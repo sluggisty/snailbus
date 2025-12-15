@@ -1,0 +1,9 @@
+README.md
+*.png
+*.jpg
+*.jpeg
+.git
+.gitignore
+.vscode
+.idea
+
