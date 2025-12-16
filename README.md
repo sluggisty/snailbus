@@ -13,7 +13,8 @@ Snailbus is a lightweight Go webserver built with Gin that provides a REST API f
 ### Using Docker Compose (Recommended)
 
 ```bash
-# Build and start the service
+# Build and start the service (includes PostgreSQL)
+
 docker-compose up -d
 
 # View logs
@@ -21,16 +22,70 @@ docker-compose logs -f
 
 # Stop the service
 docker-compose down
+
+# Stop and remove volumes (clears database)
+docker-compose down -v
 ```
 
 The service will be available at `http://localhost:8080`
 
 ### Local Development
 
+**Prerequisites:**
+- PostgreSQL 16+ running locally
+- Go 1.24 or later
+
 ```bash
 # Install dependencies
 go mod download
 
+# Set database URL (or use default)
+export DATABASE_URL="postgres://snail:snail_secret@localhost:5432/snailbus?sslmode=disable"
+
+# Run the server (migrations run automatically on startup)
+go run main.go
+```
+
+## Database
+
+Snailbus uses PostgreSQL for persistent storage. Database migrations are automatically run on application startup using [golang-migrate](https://github.com/golang-migrate/migrate).
+
+### Migration Files
+
+Migrations are located in the `migrations/` directory:
+- `000001_initial_schema.up.sql` - Creates the initial database schema
+- `000001_initial_schema.down.sql` - Drops the schema (for rollback)
+
+### Database Schema
+
+The initial schema includes:
+
+- **hosts** table: Stores system information from snail-core agents
+  - `hostname` (TEXT, PRIMARY KEY): Unique host identifier
+  - `received_at` (TIMESTAMPTZ): When the data was received
+  - `collection_id` (TEXT): Collection identifier
+  - `timestamp` (TEXT): Original timestamp from snail-core
+  - `snail_version` (TEXT): Version of snail-core that collected the data
+  - `data` (JSONB): Full system information data
+  - `errors` (TEXT[]): Any errors encountered during collection
+
+### Manual Migration Management
+
+If you need to manage migrations manually:
+
+```bash
+# Install golang-migrate CLI
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+# Create a new migration
+migrate create -ext sql -dir migrations -seq add_new_table
+
+# Run migrations up
+migrate -path migrations -database "postgres://snail:snail_secret@localhost:5432/snailbus?sslmode=disable" up
+
+# Rollback one migration
+migrate -path migrations -database "postgres://snail:snail_secret@localhost:5432/snailbus?sslmode=disable" down 1
+```
 # Run the server
 go run main.go
 ```
@@ -46,7 +101,8 @@ Returns:
 ```json
 {
   "status": "ok",
-  "service": "snailbus"
+  "service": "snailbus",
+  "database": "connected"
 }
 ```
 
@@ -68,6 +124,7 @@ Returns:
 ### Prerequisites
 
 - Go 1.24 or later
+- PostgreSQL 16+ (or use Docker Compose)
 - Docker and Docker Compose (for containerized deployment)
 
 ### Building
@@ -86,8 +143,10 @@ go build -o snailbus main.go
 # Build Docker image
 docker build -t snailbus .
 
-# Run container
-docker run -p 8080:8080 snailbus
+# Run container (requires PostgreSQL)
+docker run -p 8080:8080 \
+  -e DATABASE_URL="postgres://snail:snail_secret@host.docker.internal:5432/snailbus?sslmode=disable" \
+  snailbus
 ```
 
 ## Project Structure
@@ -99,23 +158,53 @@ snailbus/
 ├── go.sum              # Go module checksums
 ├── Dockerfile          # Docker build configuration
 ├── docker-compose.yml  # Docker Compose configuration
+├── migrations/         # Database migration files
+│   ├── 000001_initial_schema.up.sql
+│   └── 000001_initial_schema.down.sql
 ├── snailbus.png        # Project logo
 └── README.md           # This file
 ```
 
 ## Configuration
 
-The server runs on port 8080 by default. To change the port, modify the `r.Run()` call in `main.go`.
-
 ### Environment Variables
 
-- `GIN_MODE`: Set to `release` for production (default: `debug`)
-  - `debug`: Development mode with detailed logging
+- `DATABASE_URL`: PostgreSQL connection string (required)
+  - Default: `postgres://snail:snail_secret@localhost:5432/snailbus?sslmode=disable`
+  - Format: `postgres://user:password@host:port/database?sslmode=disable`
+  
+- `MIGRATIONS_PATH`: Path to migration files
+  - Default: `file://migrations`
+  
+- `PORT`: Server port
+  - Default: `8080`
+  
+- `GIN_MODE`: Gin framework mode
+  - `debug`: Development mode with detailed logging (default)
   - `release`: Production mode with optimized performance
+
+### Docker Compose Configuration
+
+The `docker-compose.yml` includes:
+- **snailbus**: The main application service
+- **postgres**: PostgreSQL 16 database service
+- **postgres_data**: Persistent volume for database data
+
+Default database credentials:
+- User: `snail`
+- Password: `snail_secret`
+- Database: `snailbus`
+
+**⚠️ Change these credentials in production!**
 
 ## Architecture
 
-Snailbus is designed to be the central collection point for system information gathered by snail-core agents running on various Linux hosts. The service receives, processes, and stores diagnostic data for analysis and monitoring.
+Snailbus is designed to be the central collection point for system information gathered by snail-core agents running on various Linux hosts. The service:
+
+1. Receives diagnostic data from snail-core agents
+2. Stores data in PostgreSQL with automatic schema migrations
+3. Provides REST API endpoints for querying and displaying system information
+4. Monitors database health and connection status
 
 ## License
 

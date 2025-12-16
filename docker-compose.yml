@@ -10,6 +10,12 @@ services:
       - "8080:8080"
     environment:
       - GIN_MODE=release
+      - DATABASE_URL=postgres://snail:snail_secret@postgres:5432/snailbus?sslmode=disable
+      - MIGRATIONS_PATH=file://migrations
+      - PORT=8080
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -17,4 +23,35 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - snailbus-network
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: snailbus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: snail
+      POSTGRES_PASSWORD: snail_secret
+      POSTGRES_DB: snailbus
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snail -d snailbus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - snailbus-network
+    # Uncomment to expose postgres port for debugging
+    # ports:
+    #   - "5432:5432"
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  snailbus-network:
+    driver: bridge
