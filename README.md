@@ -119,6 +119,95 @@ Returns:
 }
 ```
 
+### Ingest (Receive Data from snail-core)
+```
+POST /api/v1/ingest
+Content-Type: application/json
+Content-Encoding: gzip (optional)
+```
+
+Accepts data from snail-core agents. Supports both compressed (gzip) and uncompressed JSON payloads.
+
+**Request Body:**
+```json
+{
+  "meta": {
+    "hostname": "example-host",
+    "collection_id": "uuid-here",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "snail_version": "0.2.0"
+  },
+  "data": {
+    "system": { ... },
+    "hardware": { ... },
+    "packages": { ... }
+  },
+  "errors": []
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "status": "ok",
+  "report_id": "example-host",
+  "received_at": "2024-01-01T00:00:00Z",
+  "message": "Host data updated successfully"
+}
+```
+
+### List Hosts
+```
+GET /api/v1/hosts
+```
+
+Returns a list of all known hosts.
+
+**Response:**
+```json
+{
+  "hosts": [
+    {
+      "hostname": "example-host",
+      "last_seen": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+### Get Host
+```
+GET /api/v1/hosts/:hostname
+```
+
+Returns the full report data for a specific host.
+
+**Response:**
+```json
+{
+  "id": "example-host",
+  "received_at": "2024-01-01T00:00:00Z",
+  "meta": {
+    "hostname": "example-host",
+    "collection_id": "uuid-here",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "snail_version": "0.2.0"
+  },
+  "data": { ... },
+  "errors": []
+}
+```
+
+### Delete Host
+```
+DELETE /api/v1/hosts/:hostname
+```
+
+Removes a host and all its data from the database.
+
+**Response:** 204 No Content
+
 ## Development
 
 ### Prerequisites
