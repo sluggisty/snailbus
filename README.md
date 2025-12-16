@@ -14,6 +14,7 @@ Snailbus is a lightweight Go webserver built with Gin that provides a REST API f
 
 ```bash
 # Build and start the service (includes PostgreSQL)
+
 docker-compose up -d
 
 # View logs
@@ -84,6 +85,9 @@ migrate -path migrations -database "postgres://snail:snail_secret@localhost:5432
 
 # Rollback one migration
 migrate -path migrations -database "postgres://snail:snail_secret@localhost:5432/snailbus?sslmode=disable" down 1
+```
+# Run the server
+go run main.go
 ```
 
 ## API Endpoints
