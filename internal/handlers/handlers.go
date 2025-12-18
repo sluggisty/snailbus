@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -218,18 +219,23 @@ func (h *Handlers) DeleteHost(c *gin.Context) {
 // @Success     200  {string}  string  "OpenAPI specification"
 // @Router      /openapi.yaml [get]
 func (h *Handlers) GetOpenAPISpecYAML(c *gin.Context) {
-	// Try to read generated spec from docs/swagger.yaml first
-	specPath := "docs/swagger.yaml"
+	// Try to find the spec file relative to the executable or current working directory
+	specPath := h.findSpecFile("docs/swagger.yaml")
+	if specPath == "" {
+		specPath = h.findSpecFile("openapi.yaml")
+	}
+	
+	if specPath == "" {
+		log.Printf("Failed to find OpenAPI spec file")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+		return
+	}
+	
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
-		// Fallback to openapi.yaml if generated spec doesn't exist
-		specPath = "openapi.yaml"
-		specData, err = os.ReadFile(specPath)
-		if err != nil {
-			log.Printf("Failed to read OpenAPI spec: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
-			return
-		}
+		log.Printf("Failed to read OpenAPI spec from %s: %v", specPath, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+		return
 	}
 
 	c.Data(http.StatusOK, "application/x-yaml", specData)
@@ -243,33 +249,29 @@ func (h *Handlers) GetOpenAPISpecYAML(c *gin.Context) {
 // @Success     200  {object}  map[string]interface{}  "OpenAPI specification"
 // @Router      /openapi.json [get]
 func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
-	// Try to read generated spec from docs/swagger.json first
-	specPath := "docs/swagger.json"
-	specData, err := os.ReadFile(specPath)
-	if err != nil {
+	// Try to find the spec file relative to the executable or current working directory
+	specPath := h.findSpecFile("docs/swagger.json")
+	if specPath == "" {
 		// Fallback: try to read YAML and convert
-		specPath = "docs/swagger.yaml"
-		specData, err = os.ReadFile(specPath)
-		if err != nil {
-			// Final fallback to openapi.yaml
-			specPath = "openapi.yaml"
-			specData, err = os.ReadFile(specPath)
-			if err != nil {
-				log.Printf("Failed to read OpenAPI spec: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
-				return
-			}
-			// Parse YAML and convert to JSON
-			var spec map[string]interface{}
-			if err := yaml.Unmarshal(specData, &spec); err != nil {
-				log.Printf("Failed to parse OpenAPI spec: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse OpenAPI specification"})
-				return
-			}
-			c.JSON(http.StatusOK, spec)
+		specPath = h.findSpecFile("docs/swagger.yaml")
+		if specPath == "" {
+			specPath = h.findSpecFile("openapi.yaml")
+		}
+		
+		if specPath == "" {
+			log.Printf("Failed to find OpenAPI spec file")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 			return
 		}
-		// Parse YAML and convert to JSON
+		
+		// Read and parse YAML, then convert to JSON
+		specData, err := os.ReadFile(specPath)
+		if err != nil {
+			log.Printf("Failed to read OpenAPI spec from %s: %v", specPath, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+			return
+		}
+		
 		var spec map[string]interface{}
 		if err := yaml.Unmarshal(specData, &spec); err != nil {
 			log.Printf("Failed to parse OpenAPI spec: %v", err)
@@ -279,8 +281,16 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 		c.JSON(http.StatusOK, spec)
 		return
 	}
+	
+	// Read JSON file
+	specData, err := os.ReadFile(specPath)
+	if err != nil {
+		log.Printf("Failed to read OpenAPI spec from %s: %v", specPath, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+		return
+	}
 
-	// Already JSON, just parse and return
+	// Parse and return JSON
 	var spec map[string]interface{}
 	if err := json.Unmarshal(specData, &spec); err != nil {
 		log.Printf("Failed to parse OpenAPI spec JSON: %v", err)
@@ -289,6 +299,35 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, spec)
+}
+
+// findSpecFile tries to locate a spec file in multiple possible locations
+func (h *Handlers) findSpecFile(relativePath string) string {
+	// Try current working directory first
+	if _, err := os.Stat(relativePath); err == nil {
+		return relativePath
+	}
+	
+	// Try relative to executable location
+	execPath, err := os.Executable()
+	if err == nil {
+		execDir := filepath.Dir(execPath)
+		absPath := filepath.Join(execDir, relativePath)
+		if _, err := os.Stat(absPath); err == nil {
+			return absPath
+		}
+	}
+	
+	// Try relative to current working directory with absolute path
+	wd, err := os.Getwd()
+	if err == nil {
+		absPath := filepath.Join(wd, relativePath)
+		if _, err := os.Stat(absPath); err == nil {
+			return absPath
+		}
+	}
+	
+	return ""
 }
 
 

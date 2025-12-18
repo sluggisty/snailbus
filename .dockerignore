@@ -6,3 +6,5 @@ README.md
 .gitignore
 .vscode
 .idea
+# Don't ignore docs directory - it needs to be generated during build
+# docs/
