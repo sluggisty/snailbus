@@ -26,6 +26,14 @@ func New(store storage.Storage) *Handlers {
 }
 
 // Health returns server health status
+// @Summary     Health check
+// @Description Returns the health status of the service, including database connectivity. Useful for monitoring and load balancer health checks.
+// @Tags        Health
+// @Accept      json
+// @Produce     json
+// @Success     200  {object}  map[string]string  "Service is healthy and database is connected"
+// @Success     503  {object}  map[string]string  "Service is unhealthy or database is disconnected"
+// @Router      /health [get]
 func (h *Handlers) Health(c *gin.Context) {
 	// Check database connection by trying to list hosts (lightweight operation)
 	_, err := h.storage.ListHosts()
@@ -46,6 +54,17 @@ func (h *Handlers) Health(c *gin.Context) {
 }
 
 // Ingest handles incoming reports from snail-core
+// @Summary     Ingest collection report
+// @Description Receives a collection report from a snail-core agent and stores it. The report replaces any existing data for the same hostname. Supports gzip-compressed requests via the Content-Encoding: gzip header.
+// @Tags        Ingest
+// @Accept      json
+// @Accept      application/gzip
+// @Produce     json
+// @Param       request  body      models.IngestRequest  true  "Collection report from snail-core"
+// @Success     201      {object}  models.IngestResponse  "Report successfully ingested"
+// @Failure     400      {object}  map[string]string     "Invalid request payload"
+// @Failure     500      {object}  map[string]string     "Internal server error"
+// @Router      /api/v1/ingest [post]
 func (h *Handlers) Ingest(c *gin.Context) {
 	// Handle gzip-compressed requests
 	var reader io.Reader = c.Request.Body
@@ -104,6 +123,14 @@ func (h *Handlers) Ingest(c *gin.Context) {
 }
 
 // ListHosts returns a list of all known hosts
+// @Summary     List all hosts
+// @Description Returns a list of all known hosts with summary information. Each host entry includes the hostname and last seen timestamp.
+// @Tags        Hosts
+// @Accept      json
+// @Produce     json
+// @Success     200  {object}  map[string]interface{}  "List of hosts with total count"
+// @Failure     500  {object}  map[string]string       "Internal server error"
+// @Router      /api/v1/hosts [get]
 func (h *Handlers) ListHosts(c *gin.Context) {
 	hosts, err := h.storage.ListHosts()
 	if err != nil {
@@ -119,6 +146,17 @@ func (h *Handlers) ListHosts(c *gin.Context) {
 }
 
 // GetHost returns the full data for a specific host
+// @Summary     Get host data
+// @Description Returns the complete collection report for a specific host, including all collected data and metadata.
+// @Tags        Hosts
+// @Accept      json
+// @Produce     json
+// @Param       hostname  path      string  true  "Hostname of the host to retrieve"
+// @Success     200       {object}  models.Report  "Host data"
+// @Failure     400       {object}  map[string]string  "Missing hostname parameter"
+// @Failure     404       {object}  map[string]string  "Host not found"
+// @Failure     500       {object}  map[string]string  "Internal server error"
+// @Router      /api/v1/hosts/{hostname} [get]
 func (h *Handlers) GetHost(c *gin.Context) {
 	hostname := c.Param("hostname")
 	if hostname == "" {
@@ -141,6 +179,17 @@ func (h *Handlers) GetHost(c *gin.Context) {
 }
 
 // DeleteHost removes a host
+// @Summary     Delete host
+// @Description Removes a host and all its associated data from the system. This operation cannot be undone.
+// @Tags        Hosts
+// @Accept      json
+// @Produce     json
+// @Param       hostname  path      string  true  "Hostname of the host to delete"
+// @Success     204       "Host successfully deleted"
+// @Failure     400       {object}  map[string]string  "Missing hostname parameter"
+// @Failure     404       {object}  map[string]string  "Host not found"
+// @Failure     500       {object}  map[string]string  "Internal server error"
+// @Router      /api/v1/hosts/{hostname} [delete]
 func (h *Handlers) DeleteHost(c *gin.Context) {
 	hostname := c.Param("hostname")
 	if hostname == "" {
@@ -162,36 +211,79 @@ func (h *Handlers) DeleteHost(c *gin.Context) {
 }
 
 // GetOpenAPISpecYAML returns the OpenAPI specification in YAML format
+// @Summary     OpenAPI specification (YAML)
+// @Description Returns the OpenAPI 3.0 specification in YAML format (generated from code annotations)
+// @Tags        Health
+// @Produce     application/x-yaml
+// @Success     200  {string}  string  "OpenAPI specification"
+// @Router      /openapi.yaml [get]
 func (h *Handlers) GetOpenAPISpecYAML(c *gin.Context) {
-	// Read the embedded or file-based OpenAPI spec
-	// For now, we'll read from the file system
-	// In production, you might want to embed this at build time
-	specPath := "openapi.yaml"
+	// Try to read generated spec from docs/swagger.yaml first
+	specPath := "docs/swagger.yaml"
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
-		log.Printf("Failed to read OpenAPI spec: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
-		return
+		// Fallback to openapi.yaml if generated spec doesn't exist
+		specPath = "openapi.yaml"
+		specData, err = os.ReadFile(specPath)
+		if err != nil {
+			log.Printf("Failed to read OpenAPI spec: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+			return
+		}
 	}
 
 	c.Data(http.StatusOK, "application/x-yaml", specData)
 }
 
 // GetOpenAPISpecJSON returns the OpenAPI specification in JSON format
+// @Summary     OpenAPI specification (JSON)
+// @Description Returns the OpenAPI 3.0 specification in JSON format (generated from code annotations)
+// @Tags        Health
+// @Produce     application/json
+// @Success     200  {object}  map[string]interface{}  "OpenAPI specification"
+// @Router      /openapi.json [get]
 func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
-	// Read YAML and convert to JSON
-	specPath := "openapi.yaml"
+	// Try to read generated spec from docs/swagger.json first
+	specPath := "docs/swagger.json"
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
-		log.Printf("Failed to read OpenAPI spec: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+		// Fallback: try to read YAML and convert
+		specPath = "docs/swagger.yaml"
+		specData, err = os.ReadFile(specPath)
+		if err != nil {
+			// Final fallback to openapi.yaml
+			specPath = "openapi.yaml"
+			specData, err = os.ReadFile(specPath)
+			if err != nil {
+				log.Printf("Failed to read OpenAPI spec: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+				return
+			}
+			// Parse YAML and convert to JSON
+			var spec map[string]interface{}
+			if err := yaml.Unmarshal(specData, &spec); err != nil {
+				log.Printf("Failed to parse OpenAPI spec: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse OpenAPI specification"})
+				return
+			}
+			c.JSON(http.StatusOK, spec)
+			return
+		}
+		// Parse YAML and convert to JSON
+		var spec map[string]interface{}
+		if err := yaml.Unmarshal(specData, &spec); err != nil {
+			log.Printf("Failed to parse OpenAPI spec: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse OpenAPI specification"})
+			return
+		}
+		c.JSON(http.StatusOK, spec)
 		return
 	}
 
-	// Parse YAML
+	// Already JSON, just parse and return
 	var spec map[string]interface{}
-	if err := yaml.Unmarshal(specData, &spec); err != nil {
-		log.Printf("Failed to parse OpenAPI spec: %v", err)
+	if err := json.Unmarshal(specData, &spec); err != nil {
+		log.Printf("Failed to parse OpenAPI spec JSON: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse OpenAPI specification"})
 		return
 	}
