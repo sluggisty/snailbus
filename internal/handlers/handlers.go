@@ -6,9 +6,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gopkg.in/yaml.v3"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
 )
@@ -158,4 +160,43 @@ func (h *Handlers) DeleteHost(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+// GetOpenAPISpecYAML returns the OpenAPI specification in YAML format
+func (h *Handlers) GetOpenAPISpecYAML(c *gin.Context) {
+	// Read the embedded or file-based OpenAPI spec
+	// For now, we'll read from the file system
+	// In production, you might want to embed this at build time
+	specPath := "openapi.yaml"
+	specData, err := os.ReadFile(specPath)
+	if err != nil {
+		log.Printf("Failed to read OpenAPI spec: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+		return
+	}
+
+	c.Data(http.StatusOK, "application/x-yaml", specData)
+}
+
+// GetOpenAPISpecJSON returns the OpenAPI specification in JSON format
+func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
+	// Read YAML and convert to JSON
+	specPath := "openapi.yaml"
+	specData, err := os.ReadFile(specPath)
+	if err != nil {
+		log.Printf("Failed to read OpenAPI spec: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
+		return
+	}
+
+	// Parse YAML
+	var spec map[string]interface{}
+	if err := yaml.Unmarshal(specData, &spec); err != nil {
+		log.Printf("Failed to parse OpenAPI spec: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse OpenAPI specification"})
+		return
+	}
+
+	c.JSON(http.StatusOK, spec)
+}
+
 

@@ -43,3 +43,4 @@ type HostSummary struct {
 	LastSeen time.Time `json:"last_seen"`
 }
 
+

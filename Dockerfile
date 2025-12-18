@@ -31,6 +31,9 @@ COPY --from=builder /app/snailbus .
 # Copy migrations directory
 COPY --from=builder /app/migrations ./migrations
 
+# Copy OpenAPI specification
+COPY --from=builder /app/openapi.yaml ./openapi.yaml
+
 # Expose port 8080
 EXPOSE 8080
 

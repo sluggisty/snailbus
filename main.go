@@ -61,6 +61,10 @@ func main() {
 		v1.DELETE("/hosts/:hostname", h.DeleteHost)
 	}
 
+	// OpenAPI specification endpoints
+	r.GET("/openapi.yaml", h.GetOpenAPISpecYAML)
+	r.GET("/openapi.json", h.GetOpenAPISpecJSON)
+
 	// Start server on port 8080
 	port := getEnv("PORT", "8080")
 	log.Printf("Starting Snailbus server on port %s", port)

@@ -15,3 +15,4 @@ CREATE INDEX IF NOT EXISTS idx_hosts_received_at ON hosts(received_at DESC);
 -- Create index on collection_id for lookups
 CREATE INDEX IF NOT EXISTS idx_hosts_collection_id ON hosts(collection_id);
 
+

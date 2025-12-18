@@ -90,6 +90,56 @@ migrate -path migrations -database "postgres://snail:snail_secret@localhost:5432
 go run main.go
 ```
 
+## OpenAPI Specification
+
+Snailbus provides a complete OpenAPI 3.0 specification for all API endpoints. The specification is available in both YAML and JSON formats.
+
+### Accessing the OpenAPI Spec
+
+- **YAML format**: `GET /openapi.yaml`
+- **JSON format**: `GET /openapi.json`
+
+The specification file is also available in the repository at `openapi.yaml`.
+
+### Generating and Validating the Spec
+
+The project includes tools for generating and validating the OpenAPI specification:
+
+```bash
+# Build the tools
+make install-tools
+
+# Generate JSON from YAML
+make generate-json
+
+# Validate the OpenAPI spec
+make validate
+```
+
+Or use the tools directly:
+
+```bash
+# Build the generator
+go build -o cmd/generate-openapi/generate-openapi ./cmd/generate-openapi
+
+# Generate JSON
+./cmd/generate-openapi/generate-openapi openapi.yaml openapi.json
+
+# Build the validator
+go build -o cmd/validate-openapi/validate-openapi ./cmd/validate-openapi
+
+# Validate
+./cmd/validate-openapi/validate-openapi openapi.yaml
+```
+
+### Viewing the API Documentation
+
+You can view the OpenAPI specification using tools like:
+
+- **Swagger UI**: Import `openapi.yaml` or visit `http://localhost:8080/openapi.yaml` in Swagger UI
+- **Redoc**: Import the spec to generate interactive documentation
+- **Postman**: Import the OpenAPI spec to generate a Postman collection
+
 ## API Endpoints
 
 ### Health Check
@@ -222,8 +272,27 @@ Removes a host and all its data from the database.
 # Build binary
 go build -o snailbus main.go
 
+# Or use Makefile
+make build
+
 # Run binary
 ./snailbus
+
+# Or use Makefile
+make run
+```
+
+### OpenAPI Tools
+
+```bash
+# Build OpenAPI tools
+make install-tools
+
+# Generate JSON from YAML
+make generate-json
+
+# Validate OpenAPI spec
+make validate
 ```
 
 ### Docker Build
@@ -247,9 +316,19 @@ snailbus/
 ├── go.sum              # Go module checksums
 ├── Dockerfile          # Docker build configuration
 ├── docker-compose.yml  # Docker Compose configuration
+├── Makefile            # Build and development commands
+├── openapi.yaml        # OpenAPI 3.0 specification (YAML)
+├── openapi.json        # OpenAPI 3.0 specification (JSON, generated)
 ├── migrations/         # Database migration files
 │   ├── 000001_initial_schema.up.sql
 │   └── 000001_initial_schema.down.sql
+├── cmd/                # Command-line tools
+│   ├── generate-openapi/  # Tool to generate JSON from YAML
+│   └── validate-openapi/  # Tool to validate OpenAPI spec
+├── internal/            # Internal packages
+│   ├── handlers/       # HTTP request handlers
+│   ├── models/         # Data models
+│   └── storage/        # Database storage interface and implementation
 ├── snailbus.png        # Project logo
 └── README.md           # This file
 ```
