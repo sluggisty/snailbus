@@ -15,11 +15,11 @@ type Storage interface {
 	// SaveHost stores or updates a host's report
 	SaveHost(report *models.Report) error
 
-	// GetHost returns the full report data for a specific host
-	GetHost(hostname string) (*models.Report, error)
-
-	// DeleteHost removes a host
-	DeleteHost(hostname string) error
+	// GetHost returns the full report data for a specific host by host_id (UUID)
+	GetHost(hostID string) (*models.Report, error)
+	
+	// DeleteHost removes a host by host_id (UUID)
+	DeleteHost(hostID string) error
 
 	// ListHosts returns all hosts with summary info
 	ListHosts() ([]*models.HostSummary, error)

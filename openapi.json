@@ -1,0 +1,655 @@
+{
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "description": "Error message",
+            "example": "host not found",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "database": {
+            "description": "Database connection status",
+            "enum": [
+              "connected",
+              "disconnected"
+            ],
+            "type": "string"
+          },
+          "service": {
+            "description": "Service name",
+            "example": "snailbus",
+            "type": "string"
+          },
+          "status": {
+            "description": "Overall service status",
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "service",
+          "database"
+        ],
+        "type": "object"
+      },
+      "HostSummary": {
+        "properties": {
+          "hostname": {
+            "description": "Hostname of the system",
+            "example": "server01.example.com",
+            "type": "string"
+          },
+          "last_seen": {
+            "description": "Timestamp of the last received report (RFC3339)",
+            "example": "2024-01-15T10:30:00Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hostname",
+          "last_seen"
+        ],
+        "type": "object"
+      },
+      "IngestRequest": {
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "description": "Collected system data. Structure depends on enabled collectors.\nCommon fields include:\n- system: OS, kernel, hostname, uptime\n- hardware: CPU, memory, disks, devices\n- network: interfaces, routing, DNS\n- packages: installed packages and repositories\n- services: systemd units and running services\n- filesystem: mounts, fstab, LVM\n- security: SELinux, firewall, SSH config\n- logs: recent journald entries\n",
+            "type": "object"
+          },
+          "errors": {
+            "description": "List of errors encountered during collection",
+            "example": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ReportMeta"
+          }
+        },
+        "required": [
+          "meta",
+          "data"
+        ],
+        "type": "object"
+      },
+      "IngestResponse": {
+        "properties": {
+          "message": {
+            "description": "Optional status message",
+            "example": "Host data updated successfully",
+            "type": "string"
+          },
+          "received_at": {
+            "description": "Timestamp when the report was received (RFC3339)",
+            "example": "2024-01-15T10:30:05Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "report_id": {
+            "description": "Hostname (used as report ID)",
+            "example": "server01.example.com",
+            "type": "string"
+          },
+          "status": {
+            "description": "Response status",
+            "enum": [
+              "ok"
+            ],
+            "example": "ok",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "report_id",
+          "received_at"
+        ],
+        "type": "object"
+      },
+      "Report": {
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "description": "Collected system data (structure varies by collectors)",
+            "type": "object"
+          },
+          "errors": {
+            "description": "List of errors encountered during collection",
+            "example": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "description": "Report ID (hostname)",
+            "example": "server01.example.com",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ReportMeta"
+          },
+          "received_at": {
+            "description": "Timestamp when the report was received (RFC3339)",
+            "example": "2024-01-15T10:30:05Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "received_at",
+          "meta",
+          "data"
+        ],
+        "type": "object"
+      },
+      "ReportMeta": {
+        "properties": {
+          "collection_id": {
+            "description": "Unique identifier for this collection run",
+            "example": "abc123-def456-ghi789",
+            "type": "string"
+          },
+          "hostname": {
+            "description": "Hostname of the system that generated the report",
+            "example": "server01.example.com",
+            "type": "string"
+          },
+          "snail_version": {
+            "description": "Version of snail-core that generated the report",
+            "example": "1.0.0",
+            "type": "string"
+          },
+          "timestamp": {
+            "description": "Timestamp when the collection was performed (RFC3339)",
+            "example": "2024-01-15T10:30:00Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hostname",
+          "collection_id",
+          "timestamp",
+          "snail_version"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Snailbus API Support",
+      "url": "https://github.com/sluggisty/snailbus"
+    },
+    "description": "Snailbus is a data ingestion and management API for receiving and storing\nsystem information collected by snail-core agents.\n\nThe API provides endpoints for:\n- Ingesting collection reports from snail-core agents\n- Querying and managing host data\n- Health monitoring\n\nAll timestamps are in RFC3339 format (ISO 8601).\n",
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "title": "Snailbus API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "Returns basic API information",
+        "operationId": "getRoot",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "example": "Welcome to Snailbus API",
+                      "type": "string"
+                    },
+                    "version": {
+                      "example": "1.0.0",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "API information"
+          }
+        },
+        "summary": "Root endpoint",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/hosts": {
+      "get": {
+        "description": "Returns a list of all known hosts with summary information.\nEach host entry includes the hostname and last seen timestamp.\n",
+        "operationId": "listHosts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "hosts": [
+                    {
+                      "hostname": "server01.example.com",
+                      "last_seen": "2024-01-15T10:30:00Z"
+                    },
+                    {
+                      "hostname": "server02.example.com",
+                      "last_seen": "2024-01-15T09:15:00Z"
+                    }
+                  ],
+                  "total": 2
+                },
+                "schema": {
+                  "properties": {
+                    "hosts": {
+                      "items": {
+                        "$ref": "#/components/schemas/HostSummary"
+                      },
+                      "type": "array"
+                    },
+                    "total": {
+                      "description": "Total number of hosts",
+                      "example": 5,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List of hosts"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "List all hosts",
+        "tags": [
+          "Hosts"
+        ]
+      }
+    },
+    "/api/v1/hosts/{hostname}": {
+      "delete": {
+        "description": "Removes a host and all its associated data from the system.\nThis operation cannot be undone.\n",
+        "operationId": "deleteHost",
+        "parameters": [
+          {
+            "description": "Hostname of the host to delete",
+            "in": "path",
+            "name": "hostname",
+            "required": true,
+            "schema": {
+              "example": "server01.example.com",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Host successfully deleted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing hostname parameter"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Host not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Delete host",
+        "tags": [
+          "Hosts"
+        ]
+      },
+      "get": {
+        "description": "Returns the complete collection report for a specific host,\nincluding all collected data and metadata.\n",
+        "operationId": "getHost",
+        "parameters": [
+          {
+            "description": "Hostname of the host to retrieve",
+            "in": "path",
+            "name": "hostname",
+            "required": true,
+            "schema": {
+              "example": "server01.example.com",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "packages": {
+                      "count": 1234
+                    },
+                    "system": {
+                      "kernel": "6.5.0",
+                      "os": "Fedora"
+                    }
+                  },
+                  "errors": [],
+                  "id": "server01.example.com",
+                  "meta": {
+                    "collection_id": "abc123-def456-ghi789",
+                    "hostname": "server01.example.com",
+                    "snail_version": "1.0.0",
+                    "timestamp": "2024-01-15T10:30:00Z"
+                  },
+                  "received_at": "2024-01-15T10:30:05Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Host data"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing hostname parameter"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "host not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Host not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get host data",
+        "tags": [
+          "Hosts"
+        ]
+      }
+    },
+    "/api/v1/ingest": {
+      "post": {
+        "description": "Receives a collection report from a snail-core agent and stores it.\nThe report replaces any existing data for the same hostname.\n\nSupports gzip-compressed requests via the `Content-Encoding: gzip` header.\n",
+        "operationId": "ingestReport",
+        "requestBody": {
+          "content": {
+            "application/gzip": {
+              "description": "Gzip-compressed JSON payload",
+              "schema": {
+                "$ref": "#/components/schemas/IngestRequest"
+              }
+            },
+            "application/json": {
+              "examples": {
+                "basic": {
+                  "summary": "Basic collection report",
+                  "value": {
+                    "data": {
+                      "packages": {
+                        "count": 1234
+                      },
+                      "system": {
+                        "kernel": "6.5.0",
+                        "os": "Fedora"
+                      }
+                    },
+                    "errors": [],
+                    "meta": {
+                      "collection_id": "abc123-def456-ghi789",
+                      "hostname": "server01.example.com",
+                      "snail_version": "1.0.0",
+                      "timestamp": "2024-01-15T10:30:00Z"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/IngestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Host data updated successfully",
+                  "received_at": "2024-01-15T10:30:05Z",
+                  "report_id": "server01.example.com",
+                  "status": "ok"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            },
+            "description": "Report successfully ingested"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "missing hostname in meta"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request payload"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "failed to store host data"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Ingest collection report",
+        "tags": [
+          "Ingest"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Returns the health status of the service, including database connectivity.\nUseful for monitoring and load balancer health checks.\n",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "database": "connected",
+                  "service": "snailbus",
+                  "status": "ok"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Service is healthy and database is connected"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "database": "disconnected",
+                  "service": "snailbus",
+                  "status": "error"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Service is unhealthy or database is disconnected"
+          }
+        },
+        "summary": "Health check",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "description": "Returns the OpenAPI 3.0 specification in JSON format",
+        "operationId": "getOpenAPISpecJSON",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OpenAPI specification"
+          }
+        },
+        "summary": "OpenAPI specification (JSON)",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/openapi.yaml": {
+      "get": {
+        "description": "Returns the OpenAPI 3.0 specification in YAML format",
+        "operationId": "getOpenAPISpecYAML",
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-yaml": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/yaml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OpenAPI specification"
+          }
+        },
+        "summary": "OpenAPI specification (YAML)",
+        "tags": [
+          "Health"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "description": "Local development server",
+      "url": "http://localhost:8080"
+    },
+    {
+      "description": "Production server (example)",
+      "url": "https://api.example.com"
+    }
+  ],
+  "tags": [
+    {
+      "description": "Health check endpoints",
+      "name": "Health"
+    },
+    {
+      "description": "Data ingestion from snail-core agents",
+      "name": "Ingest"
+    },
+    {
+      "description": "Host data management",
+      "name": "Hosts"
+    }
+  ]
+}

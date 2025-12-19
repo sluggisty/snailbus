@@ -1,0 +1,484 @@
+openapi: 3.0.3
+info:
+  title: Snailbus API
+  description: |
+    Snailbus is a data ingestion and management API for receiving and storing
+    system information collected by snail-core agents.
+    
+    The API provides endpoints for:
+    - Ingesting collection reports from snail-core agents
+    - Querying and managing host data
+    - Health monitoring
+    
+    All timestamps are in RFC3339 format (ISO 8601).
+  version: 1.0.0
+  contact:
+    name: Snailbus API Support
+    url: https://github.com/sluggisty/snailbus
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server (example)
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Ingest
+    description: Data ingestion from snail-core agents
+  - name: Hosts
+    description: Host data management
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: |
+        Returns the health status of the service, including database connectivity.
+        Useful for monitoring and load balancer health checks.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy and database is connected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                service: snailbus
+                database: connected
+        '503':
+          description: Service is unhealthy or database is disconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: error
+                service: snailbus
+                database: disconnected
+
+  /:
+    get:
+      tags:
+        - Health
+      summary: Root endpoint
+      description: Returns basic API information
+      operationId: getRoot
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Welcome to Snailbus API
+                  version:
+                    type: string
+                    example: 1.0.0
+
+  /api/v1/ingest:
+    post:
+      tags:
+        - Ingest
+      summary: Ingest collection report
+      description: |
+        Receives a collection report from a snail-core agent and stores it.
+        The report replaces any existing data for the same hostname.
+        
+        Supports gzip-compressed requests via the `Content-Encoding: gzip` header.
+      operationId: ingestReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestRequest'
+            examples:
+              basic:
+                summary: Basic collection report
+                value:
+                  meta:
+                    hostname: server01.example.com
+                    collection_id: abc123-def456-ghi789
+                    timestamp: 2024-01-15T10:30:00Z
+                    snail_version: 1.0.0
+                  data:
+                    system:
+                      os: Fedora
+                      kernel: 6.5.0
+                    packages:
+                      count: 1234
+                  errors: []
+          application/gzip:
+            schema:
+              $ref: '#/components/schemas/IngestRequest'
+            description: Gzip-compressed JSON payload
+      responses:
+        '201':
+          description: Report successfully ingested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+              example:
+                status: ok
+                report_id: server01.example.com
+                received_at: 2024-01-15T10:30:05Z
+                message: Host data updated successfully
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: missing hostname in meta
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: failed to store host data
+
+  /api/v1/hosts:
+    get:
+      tags:
+        - Hosts
+      summary: List all hosts
+      description: |
+        Returns a list of all known hosts with summary information.
+        Each host entry includes the hostname and last seen timestamp.
+      operationId: listHosts
+      responses:
+        '200':
+          description: List of hosts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hosts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HostSummary'
+                  total:
+                    type: integer
+                    description: Total number of hosts
+                    example: 5
+              example:
+                hosts:
+                  - hostname: server01.example.com
+                    last_seen: 2024-01-15T10:30:00Z
+                  - hostname: server02.example.com
+                    last_seen: 2024-01-15T09:15:00Z
+                total: 2
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/hosts/{hostname}:
+    get:
+      tags:
+        - Hosts
+      summary: Get host data
+      description: |
+        Returns the complete collection report for a specific host,
+        including all collected data and metadata.
+      operationId: getHost
+      parameters:
+        - name: hostname
+          in: path
+          required: true
+          description: Hostname of the host to retrieve
+          schema:
+            type: string
+            example: server01.example.com
+      responses:
+        '200':
+          description: Host data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+              example:
+                id: server01.example.com
+                received_at: 2024-01-15T10:30:05Z
+                meta:
+                  hostname: server01.example.com
+                  collection_id: abc123-def456-ghi789
+                  timestamp: 2024-01-15T10:30:00Z
+                  snail_version: 1.0.0
+                data:
+                  system:
+                    os: Fedora
+                    kernel: 6.5.0
+                  packages:
+                    count: 1234
+                errors: []
+        '400':
+          description: Missing hostname parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: host not found
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Hosts
+      summary: Delete host
+      description: |
+        Removes a host and all its associated data from the system.
+        This operation cannot be undone.
+      operationId: deleteHost
+      parameters:
+        - name: hostname
+          in: path
+          required: true
+          description: Hostname of the host to delete
+          schema:
+            type: string
+            example: server01.example.com
+      responses:
+        '204':
+          description: Host successfully deleted
+        '400':
+          description: Missing hostname parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Host not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /openapi.yaml:
+    get:
+      tags:
+        - Health
+      summary: OpenAPI specification (YAML)
+      description: Returns the OpenAPI 3.0 specification in YAML format
+      operationId: getOpenAPISpecYAML
+      responses:
+        '200':
+          description: OpenAPI specification
+          content:
+            application/x-yaml:
+              schema:
+                type: string
+            text/yaml:
+              schema:
+                type: string
+
+  /openapi.json:
+    get:
+      tags:
+        - Health
+      summary: OpenAPI specification (JSON)
+      description: Returns the OpenAPI 3.0 specification in JSON format
+      operationId: getOpenAPISpecJSON
+      responses:
+        '200':
+          description: OpenAPI specification
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - database
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+          description: Overall service status
+        service:
+          type: string
+          description: Service name
+          example: snailbus
+        database:
+          type: string
+          enum: [connected, disconnected]
+          description: Database connection status
+
+    ReportMeta:
+      type: object
+      required:
+        - hostname
+        - collection_id
+        - timestamp
+        - snail_version
+      properties:
+        hostname:
+          type: string
+          description: Hostname of the system that generated the report
+          example: server01.example.com
+        collection_id:
+          type: string
+          description: Unique identifier for this collection run
+          example: abc123-def456-ghi789
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the collection was performed (RFC3339)
+          example: 2024-01-15T10:30:00Z
+        snail_version:
+          type: string
+          description: Version of snail-core that generated the report
+          example: 1.0.0
+
+    IngestRequest:
+      type: object
+      required:
+        - meta
+        - data
+      properties:
+        meta:
+          $ref: '#/components/schemas/ReportMeta'
+        data:
+          type: object
+          description: |
+            Collected system data. Structure depends on enabled collectors.
+            Common fields include:
+            - system: OS, kernel, hostname, uptime
+            - hardware: CPU, memory, disks, devices
+            - network: interfaces, routing, DNS
+            - packages: installed packages and repositories
+            - services: systemd units and running services
+            - filesystem: mounts, fstab, LVM
+            - security: SELinux, firewall, SSH config
+            - logs: recent journald entries
+          additionalProperties: true
+        errors:
+          type: array
+          items:
+            type: string
+          description: List of errors encountered during collection
+          example: []
+
+    IngestResponse:
+      type: object
+      required:
+        - status
+        - report_id
+        - received_at
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          description: Response status
+          example: ok
+        report_id:
+          type: string
+          description: Hostname (used as report ID)
+          example: server01.example.com
+        received_at:
+          type: string
+          format: date-time
+          description: Timestamp when the report was received (RFC3339)
+          example: 2024-01-15T10:30:05Z
+        message:
+          type: string
+          description: Optional status message
+          example: Host data updated successfully
+
+    Report:
+      type: object
+      required:
+        - id
+        - received_at
+        - meta
+        - data
+      properties:
+        id:
+          type: string
+          description: Report ID (hostname)
+          example: server01.example.com
+        received_at:
+          type: string
+          format: date-time
+          description: Timestamp when the report was received (RFC3339)
+          example: 2024-01-15T10:30:05Z
+        meta:
+          $ref: '#/components/schemas/ReportMeta'
+        data:
+          type: object
+          description: Collected system data (structure varies by collectors)
+          additionalProperties: true
+        errors:
+          type: array
+          items:
+            type: string
+          description: List of errors encountered during collection
+          example: []
+
+    HostSummary:
+      type: object
+      required:
+        - hostname
+        - last_seen
+      properties:
+        hostname:
+          type: string
+          description: Hostname of the system
+          example: server01.example.com
+        last_seen:
+          type: string
+          format: date-time
+          description: Timestamp of the last received report (RFC3339)
+          example: 2024-01-15T10:30:00Z
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: host not found
+
