@@ -89,6 +89,10 @@ func (h *Handlers) Ingest(c *gin.Context) {
 	}
 
 	// Validate required fields
+	if req.Meta.HostID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing host_id in meta"})
+		return
+	}
 	if req.Meta.Hostname == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing hostname in meta"})
 		return
@@ -97,7 +101,7 @@ func (h *Handlers) Ingest(c *gin.Context) {
 	// Create report
 	now := time.Now().UTC()
 	report := &models.Report{
-		ID:         req.Meta.Hostname, // Use hostname as ID
+		ID:         req.Meta.HostID, // Use host_id (UUID) as primary identifier
 		ReceivedAt: now,
 		Meta:       req.Meta,
 		Data:       req.Data,
@@ -111,13 +115,13 @@ func (h *Handlers) Ingest(c *gin.Context) {
 		return
 	}
 
-	log.Printf("Host data updated: hostname=%s, collection_id=%s, errors=%d",
-		req.Meta.Hostname, req.Meta.CollectionID, len(req.Errors))
+	log.Printf("Host data updated: host_id=%s, hostname=%s, collection_id=%s, errors=%d",
+		req.Meta.HostID, req.Meta.Hostname, req.Meta.CollectionID, len(req.Errors))
 
 	// Send response
 	c.JSON(http.StatusCreated, models.IngestResponse{
 		Status:     "ok",
-		ReportID:   req.Meta.Hostname,
+		ReportID:   req.Meta.HostID, // Return host_id instead of hostname
 		ReceivedAt: now.Format(time.RFC3339),
 		Message:    "Host data updated successfully",
 	})
@@ -181,29 +185,29 @@ func (h *Handlers) GetHost(c *gin.Context) {
 
 // DeleteHost removes a host
 // @Summary     Delete host
-// @Description Removes a host and all its associated data from the system. This operation cannot be undone.
+// @Description Removes a host and all its associated data from the system. This operation cannot be undone. Uses host_id (UUID) as the identifier.
 // @Tags        Hosts
 // @Accept      json
 // @Produce     json
-// @Param       hostname  path      string  true  "Hostname of the host to delete"
+// @Param       host_id  path      string  true  "Host ID (UUID) of the host to delete"
 // @Success     204       "Host successfully deleted"
-// @Failure     400       {object}  map[string]string  "Missing hostname parameter"
+// @Failure     400       {object}  map[string]string  "Missing host_id parameter"
 // @Failure     404       {object}  map[string]string  "Host not found"
 // @Failure     500       {object}  map[string]string  "Internal server error"
-// @Router      /api/v1/hosts/{hostname} [delete]
+// @Router      /api/v1/hosts/{host_id} [delete]
 func (h *Handlers) DeleteHost(c *gin.Context) {
-	hostname := c.Param("hostname")
-	if hostname == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing hostname"})
+	hostID := c.Param("host_id")
+	if hostID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing host_id"})
 		return
 	}
 
-	if err := h.storage.DeleteHost(hostname); err != nil {
+	if err := h.storage.DeleteHost(hostID); err != nil {
 		if err == storage.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "host not found"})
 			return
 		}
-		log.Printf("Failed to delete host %s: %v", hostname, err)
+		log.Printf("Failed to delete host %s: %v", hostID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete host"})
 		return
 	}
