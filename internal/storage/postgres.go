@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -163,7 +164,7 @@ func (ps *PostgresStorage) DeleteHost(hostID string) error {
 // ListHosts returns all hosts with summary info
 func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
 	query := `
-		SELECT host_id, hostname, received_at
+		SELECT host_id, hostname, received_at, data
 		FROM hosts
 		ORDER BY received_at DESC
 	`
@@ -180,15 +181,34 @@ func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
 		var hostID string
 		var hostname string
 		var receivedAt time.Time
+		var dataJSON []byte
 
-		if err := rows.Scan(&hostID, &hostname, &receivedAt); err != nil {
+		if err := rows.Scan(&hostID, &hostname, &receivedAt, &dataJSON); err != nil {
 			return nil, fmt.Errorf("failed to scan host: %w", err)
 		}
 
+		// Extract OS info from JSONB data
+		var osName, osVersion string
+		var data map[string]interface{}
+		if err := json.Unmarshal(dataJSON, &data); err == nil {
+			if system, ok := data["system"].(map[string]interface{}); ok {
+				if os, ok := system["os"].(map[string]interface{}); ok {
+					if name, ok := os["name"].(string); ok {
+						osName = name
+					}
+					if version, ok := os["version"].(string); ok {
+						osVersion = version
+					}
+				}
+			}
+		}
+
 		host := &models.HostSummary{
-			HostID:   hostID,
-			Hostname: hostname,
-			LastSeen: receivedAt,
+			HostID:    hostID,
+			Hostname:  hostname,
+			OSName:    osName,
+			OSVersion: osVersion,
+			LastSeen:  receivedAt,
 		}
 
 		hosts = append(hosts, host)

@@ -5,7 +5,8 @@ snailbus
 *.dll
 *.so
 *.dylib
-
+cmd/generate-openapi/generate-openapi
+cmd/validate-openapi/validate-openapi
 # Test binary
 *.test
 

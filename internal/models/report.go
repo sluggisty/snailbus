@@ -51,11 +51,13 @@ type IngestResponse struct {
 }
 
 // HostSummary represents summary info about a host
-// @Description Summary information about a host including host_id, hostname and last seen timestamp
+// @Description Summary information about a host including host_id, hostname, OS distribution, and last seen timestamp
 type HostSummary struct {
-	HostID   string    `json:"host_id"`   // Persistent UUID
-	Hostname string    `json:"hostname"`  // Current hostname (may change)
-	LastSeen time.Time `json:"last_seen"`
+	HostID       string    `json:"host_id"`       // Persistent UUID
+	Hostname     string    `json:"hostname"`      // Current hostname (may change)
+	OSName       string    `json:"os_name"`       // Linux distribution name (e.g., "Fedora", "Debian")
+	OSVersion    string    `json:"os_version"`   // OS version (e.g., "42", "12")
+	LastSeen     time.Time `json:"last_seen"`
 }
 
 
