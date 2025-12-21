@@ -188,7 +188,7 @@ func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
 		}
 
 		// Extract OS info from JSONB data
-		var osName, osVersion string
+		var osName, osVersion, osVersionMajor, osVersionMinor, osVersionPatch string
 		var data map[string]interface{}
 		if err := json.Unmarshal(dataJSON, &data); err == nil {
 			if system, ok := data["system"].(map[string]interface{}); ok {
@@ -199,16 +199,29 @@ func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
 					if version, ok := os["version"].(string); ok {
 						osVersion = version
 					}
+					// Extract version components
+					if major, ok := os["version_major"].(string); ok && major != "" {
+						osVersionMajor = major
+					}
+					if minor, ok := os["version_minor"].(string); ok && minor != "" {
+						osVersionMinor = minor
+					}
+					if patch, ok := os["version_patch"].(string); ok && patch != "" {
+						osVersionPatch = patch
+					}
 				}
 			}
 		}
 
 		host := &models.HostSummary{
-			HostID:    hostID,
-			Hostname:  hostname,
-			OSName:    osName,
-			OSVersion: osVersion,
-			LastSeen:  receivedAt,
+			HostID:         hostID,
+			Hostname:       hostname,
+			OSName:         osName,
+			OSVersion:      osVersion,
+			OSVersionMajor: osVersionMajor,
+			OSVersionMinor: osVersionMinor,
+			OSVersionPatch: osVersionPatch,
+			LastSeen:       receivedAt,
 		}
 
 		hosts = append(hosts, host)
