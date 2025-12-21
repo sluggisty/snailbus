@@ -152,30 +152,30 @@ func (h *Handlers) ListHosts(c *gin.Context) {
 
 // GetHost returns the full data for a specific host
 // @Summary     Get host data
-// @Description Returns the complete collection report for a specific host, including all collected data and metadata.
+// @Description Returns the complete collection report for a specific host, including all collected data and metadata, identified by its host ID.
 // @Tags        Hosts
 // @Accept      json
 // @Produce     json
-// @Param       hostname  path      string  true  "Hostname of the host to retrieve"
+// @Param       host_id  path      string  true  "Unique identifier (UUID) of the host to retrieve"
 // @Success     200       {object}  models.Report  "Host data"
-// @Failure     400       {object}  map[string]string  "Missing hostname parameter"
+// @Failure     400       {object}  map[string]string  "Missing host_id parameter"
 // @Failure     404       {object}  map[string]string  "Host not found"
 // @Failure     500       {object}  map[string]string  "Internal server error"
-// @Router      /api/v1/hosts/{hostname} [get]
+// @Router      /api/v1/hosts/{host_id} [get]
 func (h *Handlers) GetHost(c *gin.Context) {
-	hostname := c.Param("hostname")
-	if hostname == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing hostname"})
+	hostID := c.Param("host_id")
+	if hostID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing host_id"})
 		return
 	}
 
-	report, err := h.storage.GetHost(hostname)
+	report, err := h.storage.GetHost(hostID)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "host not found"})
 			return
 		}
-		log.Printf("Failed to get host %s: %v", hostname, err)
+		log.Printf("Failed to get host %s: %v", hostID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve host"})
 		return
 	}
