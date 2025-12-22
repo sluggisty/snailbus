@@ -61,7 +61,8 @@ Migrations are located in the `migrations/` directory:
 The initial schema includes:
 
 - **hosts** table: Stores system information from snail-core agents
-  - `hostname` (TEXT, PRIMARY KEY): Unique host identifier
+  - `host_id` (UUID, PRIMARY KEY): Unique persistent identifier for each host
+  - `hostname` (TEXT): Hostname of the system (not unique - multiple hosts can have the same hostname)
   - `received_at` (TIMESTAMPTZ): When the data was received
   - `collection_id` (TEXT): Collection identifier
   - `timestamp` (TEXT): Original timestamp from snail-core

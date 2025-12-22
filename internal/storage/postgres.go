@@ -111,41 +111,6 @@ func (ps *PostgresStorage) GetHost(hostID string) (*models.Report, error) {
 	return report, nil
 }
 
-// GetHostByHostname returns the full report data for a specific host by hostname
-// This is useful for backward compatibility or when you only know the hostname
-func (ps *PostgresStorage) GetHostByHostname(hostname string) (*models.Report, error) {
-	query := `
-		SELECT host_id, hostname, received_at, collection_id, timestamp, snail_version, data, errors
-		FROM hosts
-		WHERE hostname = $1
-	`
-
-	report := &models.Report{}
-	var errors []string
-
-	err := ps.db.QueryRow(query, hostname).Scan(
-		&report.Meta.HostID,
-		&report.Meta.Hostname,
-		&report.ReceivedAt,
-		&report.Meta.CollectionID,
-		&report.Meta.Timestamp,
-		&report.Meta.SnailVersion,
-		&report.Data,
-		pq.Array(&errors),
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get host by hostname: %w", err)
-	}
-
-	report.ID = report.Meta.HostID
-	report.Errors = errors
-	return report, nil
-}
-
 // DeleteHost removes a host by host_id
 func (ps *PostgresStorage) DeleteHost(hostID string) error {
 	result, err := ps.db.Exec("DELETE FROM hosts WHERE host_id = $1", hostID)
