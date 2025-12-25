@@ -3,7 +3,6 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"snailbus/internal/auth"
@@ -30,7 +29,7 @@ func (h *Handlers) Register(c *gin.Context) {
 	}
 
 	// Check if username already exists
-	_, err := h.storage.GetUserByUsername(req.Username)
+	_, _, err := h.storage.GetUserByUsername(req.Username)
 	if err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
 		return
@@ -108,7 +107,7 @@ func (h *Handlers) Login(c *gin.Context) {
 	}
 
 	// Store API key
-	apiKey, err := h.storage.CreateAPIKey(user.ID, keyHash, keyPrefix, "Web UI Session", nil)
+	_, err = h.storage.CreateAPIKey(user.ID, keyHash, keyPrefix, "Web UI Session", nil)
 	if err != nil {
 		log.Printf("Failed to store API key: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})

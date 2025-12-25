@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  snailbus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: snailbus-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - GIN_MODE=debug
+      - DATABASE_URL=postgres://snail:snail_secret@postgres:5432/snailbus?sslmode=disable
+      - MIGRATIONS_PATH=file://migrations
+      - PORT=8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      create-admin:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - snailbus-network
+
+  create-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: snailbus-create-admin
+    environment:
+      - DATABASE_URL=postgres://snail:snail_secret@postgres:5432/snailbus?sslmode=disable
+      - MIGRATIONS_PATH=file:///app/migrations
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=changeme
+      - ADMIN_EMAIL=admin@localhost
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - snailbus-network
+    command: /app/create-admin
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: snailbus-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: snail
+      POSTGRES_PASSWORD: snail_secret
+      POSTGRES_DB: snailbus
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snail -d snailbus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - snailbus-network
+    # Expose postgres port for debugging in dev (using 5433 to avoid conflicts)
+    ports:
+      - "5433:5432"
+
+volumes:
+  postgres_data_dev:
+    driver: local
+
+networks:
+  snailbus-network:
+    driver: bridge
+
