@@ -240,3 +240,244 @@ func (ps *PostgresStorage) Close() error {
 	return ps.db.Close()
 }
 
+// Auth methods
+
+// CreateUser creates a new user
+func (ps *PostgresStorage) CreateUser(username, email, passwordHash string) (*models.User, error) {
+	query := `
+		INSERT INTO users (username, email, password_hash)
+		VALUES ($1, $2, $3)
+		RETURNING id, username, email, is_active, is_admin, created_at, updated_at
+	`
+
+	user := &models.User{}
+	err := ps.db.QueryRow(query, username, email, passwordHash).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.IsActive,
+		&user.IsAdmin,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return user, nil
+}
+
+// GetUserByUsername retrieves a user by username and returns the password hash
+func (ps *PostgresStorage) GetUserByUsername(username string) (*models.User, string, error) {
+	query := `
+		SELECT id, username, email, password_hash, is_active, is_admin, created_at, updated_at
+		FROM users
+		WHERE username = $1
+	`
+
+	user := &models.User{}
+	var passwordHash string
+
+	err := ps.db.QueryRow(query, username).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&passwordHash,
+		&user.IsActive,
+		&user.IsAdmin,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, "", ErrNotFound
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, passwordHash, nil
+}
+
+// GetUserByID retrieves a user by ID
+func (ps *PostgresStorage) GetUserByID(userID string) (*models.User, error) {
+	query := `
+		SELECT id, username, email, is_active, is_admin, created_at, updated_at
+		FROM users
+		WHERE id = $1
+	`
+
+	user := &models.User{}
+	err := ps.db.QueryRow(query, userID).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.IsActive,
+		&user.IsAdmin,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, nil
+}
+
+// GetUserByEmail retrieves a user by email
+func (ps *PostgresStorage) GetUserByEmail(email string) (*models.User, error) {
+	query := `
+		SELECT id, username, email, is_active, is_admin, created_at, updated_at
+		FROM users
+		WHERE email = $1
+	`
+
+	user := &models.User{}
+	err := ps.db.QueryRow(query, email).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.IsActive,
+		&user.IsAdmin,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, nil
+}
+
+// CreateAPIKey creates a new API key
+func (ps *PostgresStorage) CreateAPIKey(userID, keyHash, keyPrefix, name string, expiresAt *time.Time) (*models.APIKey, error) {
+	query := `
+		INSERT INTO api_keys (user_id, key_hash, key_prefix, name, expires_at)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, user_id, name, last_used_at, expires_at, created_at
+	`
+
+	apiKey := &models.APIKey{}
+	err := ps.db.QueryRow(query, userID, keyHash, keyPrefix, name, expiresAt).Scan(
+		&apiKey.ID,
+		&apiKey.UserID,
+		&apiKey.Name,
+		&apiKey.LastUsedAt,
+		&apiKey.ExpiresAt,
+		&apiKey.CreatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API key: %w", err)
+	}
+
+	return apiKey, nil
+}
+
+// GetAPIKeyByPrefix retrieves API keys by prefix (for efficient lookup)
+func (ps *PostgresStorage) GetAPIKeyByPrefix(keyPrefix string) ([]*models.APIKey, error) {
+	query := `
+		SELECT id, user_id, key_hash, key_prefix, name, last_used_at, expires_at, created_at
+		FROM api_keys
+		WHERE key_prefix = $1
+	`
+
+	rows, err := ps.db.Query(query, keyPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query API keys: %w", err)
+	}
+	defer rows.Close()
+
+	var apiKeys []*models.APIKey
+	for rows.Next() {
+		apiKey := &models.APIKey{}
+		err := rows.Scan(
+			&apiKey.ID,
+			&apiKey.UserID,
+			&apiKey.KeyHash,
+			&apiKey.KeyPrefix,
+			&apiKey.Name,
+			&apiKey.LastUsedAt,
+			&apiKey.ExpiresAt,
+			&apiKey.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan API key: %w", err)
+		}
+		apiKeys = append(apiKeys, apiKey)
+	}
+
+	return apiKeys, nil
+}
+
+// GetAPIKeysByUserID retrieves all API keys for a user
+func (ps *PostgresStorage) GetAPIKeysByUserID(userID string) ([]*models.APIKey, error) {
+	query := `
+		SELECT id, user_id, name, last_used_at, expires_at, created_at
+		FROM api_keys
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
+
+	rows, err := ps.db.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query API keys: %w", err)
+	}
+	defer rows.Close()
+
+	var apiKeys []*models.APIKey
+	for rows.Next() {
+		apiKey := &models.APIKey{}
+		err := rows.Scan(
+			&apiKey.ID,
+			&apiKey.UserID,
+			&apiKey.Name,
+			&apiKey.LastUsedAt,
+			&apiKey.ExpiresAt,
+			&apiKey.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan API key: %w", err)
+		}
+		apiKeys = append(apiKeys, apiKey)
+	}
+
+	return apiKeys, nil
+}
+
+// DeleteAPIKey deletes an API key
+func (ps *PostgresStorage) DeleteAPIKey(keyID string) error {
+	result, err := ps.db.Exec("DELETE FROM api_keys WHERE id = $1", keyID)
+	if err != nil {
+		return fmt.Errorf("failed to delete API key: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// UpdateAPIKeyLastUsed updates the last_used_at timestamp for an API key
+func (ps *PostgresStorage) UpdateAPIKeyLastUsed(keyID string) error {
+	_, err := ps.db.Exec(
+		"UPDATE api_keys SET last_used_at = NOW() WHERE id = $1",
+		keyID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update API key last used: %w", err)
+	}
+	return nil
+}
+

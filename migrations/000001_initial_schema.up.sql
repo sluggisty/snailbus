@@ -16,3 +16,4 @@ CREATE INDEX IF NOT EXISTS idx_hosts_received_at ON hosts(received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_hosts_collection_id ON hosts(collection_id);
 
 
+
