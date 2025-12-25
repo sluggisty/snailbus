@@ -269,4 +269,66 @@ func (h *Handlers) GetMe(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+// GetAPIKeyFromCredentials returns an API key for a user given username and password
+// @Summary     Get API key from credentials
+// @Description Authenticates with username/password and returns an API key
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       request  body      models.LoginRequest  true  "Login credentials"
+// @Success     200      {object}  models.CreateAPIKeyResponse  "API key created"
+// @Failure     401      {object}  map[string]string  "Invalid credentials"
+// @Router      /api/v1/auth/api-key [post]
+func (h *Handlers) GetAPIKeyFromCredentials(c *gin.Context) {
+	var req models.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get user and password hash
+	user, passwordHash, err := h.storage.GetUserByUsername(req.Username)
+	if err != nil {
+		// Don't reveal if user exists
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "account is inactive"})
+		return
+	}
+
+	// Verify password
+	if !auth.CheckPassword(req.Password, passwordHash) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	// Generate API key
+	plainKey, keyHash, keyPrefix, err := auth.GenerateAPIKey()
+	if err != nil {
+		log.Printf("Failed to generate API key: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate API key"})
+		return
+	}
+
+	// Store API key
+	apiKey, err := h.storage.CreateAPIKey(user.ID, keyHash, keyPrefix, "Auto-generated from credentials", nil)
+	if err != nil {
+		log.Printf("Failed to store API key: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create API key"})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.CreateAPIKeyResponse{
+		ID:        apiKey.ID,
+		Key:       plainKey, // Return the plain API key
+		Name:      apiKey.Name,
+		ExpiresAt: apiKey.ExpiresAt,
+		CreatedAt: apiKey.CreatedAt,
+	})
+}
+
 

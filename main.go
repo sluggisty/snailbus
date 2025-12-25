@@ -79,6 +79,7 @@ func main() {
 		{
 			auth.POST("/register", h.Register)
 			auth.POST("/login", h.Login)
+			auth.POST("/api-key", h.GetAPIKeyFromCredentials) // Get API key from username/password
 		}
 
 		// Protected routes (require API key authentication)
