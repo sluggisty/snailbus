@@ -15,3 +15,4 @@ ALTER TABLE hosts ADD PRIMARY KEY (hostname);
 -- Step 5: Remove host_id column
 ALTER TABLE hosts DROP COLUMN IF EXISTS host_id;
 
+

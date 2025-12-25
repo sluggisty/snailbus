@@ -16,3 +16,4 @@ END $$;
 -- Note: The index on hostname (idx_hosts_hostname) is kept for faster lookups
 -- even though hostname is no longer unique
 
+

@@ -29,6 +29,18 @@ type Storage interface {
 
 	// Close closes the database connection
 	Close() error
+
+	// Auth methods
+	CreateUser(username, email, passwordHash string) (*models.User, error)
+	GetUserByUsername(username string) (*models.User, string, error) // Returns user and password hash
+	GetUserByID(userID string) (*models.User, error)
+	GetUserByEmail(email string) (*models.User, error)
+
+	CreateAPIKey(userID, keyHash, keyPrefix, name string, expiresAt *time.Time) (*models.APIKey, error)
+	GetAPIKeyByPrefix(keyPrefix string) ([]*models.APIKey, error) // Returns all keys with this prefix
+	GetAPIKeysByUserID(userID string) ([]*models.APIKey, error)
+	DeleteAPIKey(keyID string) error
+	UpdateAPIKeyLastUsed(keyID string) error
 }
 
 

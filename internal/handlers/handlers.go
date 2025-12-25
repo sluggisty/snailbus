@@ -21,6 +21,8 @@ type Handlers struct {
 	storage storage.Storage
 }
 
+// Auth handlers are in auth.go
+
 // New creates a new Handlers instance
 func New(store storage.Storage) *Handlers {
 	return &Handlers{storage: store}
