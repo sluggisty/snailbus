@@ -80,7 +80,7 @@ func (ps *PostgresStorage) SaveHost(report *models.Report, orgID, uploadedByUser
 		errors = report.Errors
 	}
 
-	_, err := ps.db.Exec(query,
+	_, err = ps.db.Exec(query,
 		report.Meta.HostID,
 		report.Meta.Hostname,
 		report.ReceivedAt,

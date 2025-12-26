@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
+	"snailbus/internal/middleware"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
 )
