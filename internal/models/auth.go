@@ -9,6 +9,8 @@ type User struct {
 	Email        string    `json:"email"`
 	IsActive     bool      `json:"is_active"`
 	IsAdmin      bool      `json:"is_admin"`
+	OrgID        string    `json:"org_id"` // Required foreign key to organizations
+	Role         string    `json:"role"`   // Required enum: 'admin', 'editor', 'viewer'
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
