@@ -12,14 +12,15 @@ import (
 
 // Register handles user registration
 // @Summary     Register new user
-// @Description Creates a new user account
+// @Description Creates a new user account with a new organization. The user is automatically assigned as admin role.
+// @Description Only one user can be registered per organization (registration is only allowed once per organization).
 // @Tags        Auth
 // @Accept      json
 // @Produce     json
 // @Param       request  body      models.RegisterRequest  true  "Registration data"
 // @Success     201      {object}  models.User  "User created"
 // @Failure     400      {object}  map[string]string  "Invalid request"
-// @Failure     409      {object}  map[string]string  "User already exists"
+// @Failure     409      {object}  map[string]string  "User already exists or organization already has a user"
 // @Router      /api/v1/auth/register [post]
 func (h *Handlers) Register(c *gin.Context) {
 	var req models.RegisterRequest
@@ -42,6 +43,41 @@ func (h *Handlers) Register(c *gin.Context) {
 		return
 	}
 
+	// Check if organization name already exists
+	existingOrg, err := h.storage.GetOrganizationByName(req.OrgName)
+	if err == nil {
+		// Organization exists, check if it has any users
+		userCount, err := h.storage.CountUsersInOrganization(existingOrg.ID)
+		if err != nil {
+			log.Printf("Failed to count users in organization: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check organization"})
+			return
+		}
+		if userCount > 0 {
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "organization already has a user",
+				"message": "Registration is only allowed once per organization. This organization already has a registered user.",
+			})
+			return
+		}
+		// Organization exists but has no users - reject registration
+		// Users cannot join existing organizations, they must create new ones
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "organization name already exists",
+			"message": "This organization name is already taken. Please choose a different name.",
+		})
+		return
+	}
+
+	// Create a new organization for this user
+	org, err := h.storage.CreateOrganization(req.OrgName)
+	if err != nil {
+		log.Printf("Failed to create organization: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create organization"})
+		return
+	}
+	orgID := org.ID
+
 	// Hash password
 	passwordHash, err := auth.HashPassword(req.Password)
 	if err != nil {
@@ -50,8 +86,8 @@ func (h *Handlers) Register(c *gin.Context) {
 		return
 	}
 
-	// Create user
-	user, err := h.storage.CreateUser(req.Username, req.Email, passwordHash, req.OrgID, req.Role)
+	// Create user with admin role automatically
+	user, err := h.storage.CreateUser(req.Username, req.Email, passwordHash, orgID, "admin")
 	if err != nil {
 		log.Printf("Failed to create user: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
