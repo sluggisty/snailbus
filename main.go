@@ -86,24 +86,30 @@ func main() {
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(store))
 		{
-			// Auth endpoints
+			// Auth endpoints - accessible to all authenticated users
 			protected.GET("/auth/me", h.GetMe)
 
-			// API key management
+			// API key management - accessible to all authenticated users
 			protected.POST("/api-keys", h.CreateAPIKey)
 			protected.GET("/api-keys", h.ListAPIKeys)
 			protected.DELETE("/api-keys/:id", h.DeleteAPIKey)
 
-			// Host management endpoints
+			// Host management endpoints - viewing accessible to all authenticated users
 			protected.GET("/hosts", h.ListHosts)
 			protected.GET("/hosts/:host_id", h.GetHost)
-			protected.DELETE("/hosts/:host_id", h.DeleteHost)
+
+			// Host deletion - requires editor or admin role
+			editorOrAdmin := protected.Group("")
+			editorOrAdmin.Use(middleware.RequireRole("editor", "admin"))
+			{
+				editorOrAdmin.DELETE("/hosts/:host_id", h.DeleteHost)
+			}
 		}
 
-		// Ingest endpoint - requires API key but allows both authenticated and unauthenticated
-		// For backward compatibility, we'll make it optional initially, then require auth
+		// Ingest endpoint - requires editor or admin role (viewers cannot upload)
 		ingest := v1.Group("")
 		ingest.Use(middleware.AuthMiddleware(store))
+		ingest.Use(middleware.RequireRole("editor", "admin"))
 		{
 			ingest.POST("/ingest", h.Ingest)
 		}
