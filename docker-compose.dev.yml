@@ -39,6 +39,7 @@ services:
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=changeme
       - ADMIN_EMAIL=admin@localhost
+      - ADMIN_ORG_NAME=Default Organization
     depends_on:
       postgres:
         condition: service_healthy
