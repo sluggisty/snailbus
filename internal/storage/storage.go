@@ -15,19 +15,22 @@ var (
 // Storage defines the interface for storing and retrieving host reports
 type Storage interface {
 	// SaveHost stores or updates a host's report
+	// orgID and uploadedByUserID are required and will be stored with the host
 	SaveHost(report *models.Report, orgID, uploadedByUserID string) error
 
 	// GetHost returns the full report data for a specific host by host_id (UUID)
-	GetHost(hostID string) (*models.Report, error)
+	// Verifies that the host belongs to the specified organization
+	GetHost(hostID, orgID string) (*models.Report, error)
 	
 	// DeleteHost removes a host by host_id (UUID)
-	DeleteHost(hostID string) error
+	// Verifies that the host belongs to the specified organization before deletion
+	DeleteHost(hostID, orgID string) error
 
-	// ListHosts returns all hosts with summary info
-	ListHosts() ([]*models.HostSummary, error)
+	// ListHosts returns all hosts with summary info for the specified organization
+	ListHosts(orgID string) ([]*models.HostSummary, error)
 
-	// GetAllHosts returns all hosts with their full report data
-	GetAllHosts() ([]*models.Report, error)
+	// GetAllHosts returns all hosts with their full report data for the specified organization
+	GetAllHosts(orgID string) ([]*models.Report, error)
 
 	// Close closes the database connection
 	Close() error

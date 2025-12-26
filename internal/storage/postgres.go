@@ -40,7 +40,26 @@ func NewPostgresStorage(dsn string) (*PostgresStorage, error) {
 }
 
 // SaveHost stores or updates a host's report (replaces any previous report)
+// If the host already exists, it verifies that org_id matches before updating
 func (ps *PostgresStorage) SaveHost(report *models.Report, orgID, uploadedByUserID string) error {
+	// First, check if host exists and verify org_id matches
+	var existingOrgID string
+	checkQuery := `SELECT org_id FROM hosts WHERE host_id = $1`
+	err := ps.db.QueryRow(checkQuery, report.Meta.HostID).Scan(&existingOrgID)
+	
+	if err == nil {
+		// Host exists - verify org_id matches
+		if existingOrgID != orgID {
+			return fmt.Errorf("host belongs to a different organization: %w", ErrNotFound)
+		}
+	} else if err != sql.ErrNoRows {
+		// Unexpected error
+		return fmt.Errorf("failed to check existing host: %w", err)
+	}
+	// If err == sql.ErrNoRows, host doesn't exist, proceed with insert
+
+	// Use INSERT with ON CONFLICT
+	// Note: We've already verified org_id matches above if the host exists
 	query := `
 		INSERT INTO hosts (host_id, hostname, received_at, collection_id, timestamp, snail_version, data, errors, org_id, uploaded_by_user_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -82,17 +101,18 @@ func (ps *PostgresStorage) SaveHost(report *models.Report, orgID, uploadedByUser
 }
 
 // GetHost returns the full report data for a specific host (by host_id UUID)
-func (ps *PostgresStorage) GetHost(hostID string) (*models.Report, error) {
+// Verifies that the host belongs to the specified organization
+func (ps *PostgresStorage) GetHost(hostID, orgID string) (*models.Report, error) {
 	query := `
 		SELECT host_id, hostname, received_at, collection_id, timestamp, snail_version, data, errors
 		FROM hosts
-		WHERE host_id = $1
+		WHERE host_id = $1 AND org_id = $2
 	`
 
 	report := &models.Report{}
 	var errors []string
 
-	err := ps.db.QueryRow(query, hostID).Scan(
+	err := ps.db.QueryRow(query, hostID, orgID).Scan(
 		&report.Meta.HostID,
 		&report.Meta.Hostname,
 		&report.ReceivedAt,
@@ -116,8 +136,9 @@ func (ps *PostgresStorage) GetHost(hostID string) (*models.Report, error) {
 }
 
 // DeleteHost removes a host by host_id
-func (ps *PostgresStorage) DeleteHost(hostID string) error {
-	result, err := ps.db.Exec("DELETE FROM hosts WHERE host_id = $1", hostID)
+// Verifies that the host belongs to the specified organization before deletion
+func (ps *PostgresStorage) DeleteHost(hostID, orgID string) error {
+	result, err := ps.db.Exec("DELETE FROM hosts WHERE host_id = $1 AND org_id = $2", hostID, orgID)
 	if err != nil {
 		return fmt.Errorf("failed to delete host: %w", err)
 	}
@@ -130,15 +151,16 @@ func (ps *PostgresStorage) DeleteHost(hostID string) error {
 	return nil
 }
 
-// ListHosts returns all hosts with summary info
-func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
+// ListHosts returns all hosts with summary info for the specified organization
+func (ps *PostgresStorage) ListHosts(orgID string) ([]*models.HostSummary, error) {
 	query := `
 		SELECT host_id, hostname, received_at, data, org_id, uploaded_by_user_id
 		FROM hosts
+		WHERE org_id = $1
 		ORDER BY received_at DESC
 	`
 
-	rows, err := ps.db.Query(query)
+	rows, err := ps.db.Query(query, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list hosts: %w", err)
 	}
@@ -203,15 +225,16 @@ func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
 	return hosts, nil
 }
 
-// GetAllHosts returns all hosts with their full report data
-func (ps *PostgresStorage) GetAllHosts() ([]*models.Report, error) {
+// GetAllHosts returns all hosts with their full report data for the specified organization
+func (ps *PostgresStorage) GetAllHosts(orgID string) ([]*models.Report, error) {
 	query := `
 		SELECT host_id, hostname, received_at, collection_id, timestamp, snail_version, data, errors
 		FROM hosts
+		WHERE org_id = $1
 		ORDER BY received_at DESC
 	`
 
-	rows, err := ps.db.Query(query)
+	rows, err := ps.db.Query(query, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all hosts: %w", err)
 	}
