@@ -497,3 +497,97 @@ func (ps *PostgresStorage) UpdateAPIKeyLastUsed(keyID string) error {
 	return nil
 }
 
+// Organization methods
+
+// CreateOrganization creates a new organization
+func (ps *PostgresStorage) CreateOrganization(name string) (*models.Organization, error) {
+	query := `
+		INSERT INTO organizations (name)
+		VALUES ($1)
+		RETURNING id, name, created_at, updated_at
+	`
+
+	org := &models.Organization{}
+	err := ps.db.QueryRow(query, name).Scan(
+		&org.ID,
+		&org.Name,
+		&org.CreatedAt,
+		&org.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create organization: %w", err)
+	}
+
+	return org, nil
+}
+
+// GetOrganizationByID retrieves an organization by ID
+func (ps *PostgresStorage) GetOrganizationByID(orgID string) (*models.Organization, error) {
+	query := `
+		SELECT id, name, created_at, updated_at
+		FROM organizations
+		WHERE id = $1
+	`
+
+	org := &models.Organization{}
+	err := ps.db.QueryRow(query, orgID).Scan(
+		&org.ID,
+		&org.Name,
+		&org.CreatedAt,
+		&org.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get organization: %w", err)
+	}
+
+	return org, nil
+}
+
+// GetOrganizationByName retrieves an organization by name
+func (ps *PostgresStorage) GetOrganizationByName(name string) (*models.Organization, error) {
+	query := `
+		SELECT id, name, created_at, updated_at
+		FROM organizations
+		WHERE name = $1
+	`
+
+	org := &models.Organization{}
+	err := ps.db.QueryRow(query, name).Scan(
+		&org.ID,
+		&org.Name,
+		&org.CreatedAt,
+		&org.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get organization: %w", err)
+	}
+
+	return org, nil
+}
+
+// CountUsersInOrganization counts the number of users in an organization
+func (ps *PostgresStorage) CountUsersInOrganization(orgID string) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM users
+		WHERE org_id = $1
+	`
+
+	var count int
+	err := ps.db.QueryRow(query, orgID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count users in organization: %w", err)
+	}
+
+	return count, nil
+}
+

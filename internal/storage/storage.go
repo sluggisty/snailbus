@@ -43,6 +43,12 @@ type Storage interface {
 	GetAPIKeysByUserID(userID string) ([]*models.APIKey, error)
 	DeleteAPIKey(keyID string) error
 	UpdateAPIKeyLastUsed(keyID string) error
+
+	// Organization methods
+	CreateOrganization(name string) (*models.Organization, error)
+	GetOrganizationByID(orgID string) (*models.Organization, error)
+	GetOrganizationByName(name string) (*models.Organization, error)
+	CountUsersInOrganization(orgID string) (int, error)
 }
 
 
