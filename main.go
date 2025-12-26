@@ -104,6 +104,16 @@ func main() {
 			{
 				editorOrAdmin.DELETE("/hosts/:host_id", h.DeleteHost)
 			}
+
+			// User management endpoints - admin only
+			adminOnly := protected.Group("")
+			adminOnly.Use(middleware.RequireRole("admin"))
+			{
+				adminOnly.GET("/users", h.ListUsers)
+				adminOnly.POST("/users", h.CreateUser)
+				adminOnly.PUT("/users/:user_id/role", h.UpdateUserRole)
+				adminOnly.DELETE("/users/:user_id", h.DeleteUser)
+			}
 		}
 
 		// Ingest endpoint - requires editor or admin role (viewers cannot upload)

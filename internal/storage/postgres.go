@@ -591,3 +591,77 @@ func (ps *PostgresStorage) CountUsersInOrganization(orgID string) (int, error) {
 	return count, nil
 }
 
+// ListUsersByOrganization lists all users in an organization
+func (ps *PostgresStorage) ListUsersByOrganization(orgID string) ([]*models.User, error) {
+	query := `
+		SELECT id, username, email, is_active, is_admin, org_id, role, created_at, updated_at
+		FROM users
+		WHERE org_id = $1
+		ORDER BY created_at ASC
+	`
+
+	rows, err := ps.db.Query(query, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*models.User
+	for rows.Next() {
+		user := &models.User{}
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.Email,
+			&user.IsActive,
+			&user.IsAdmin,
+			&user.OrgID,
+			&user.Role,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
+// UpdateUserRole updates a user's role
+func (ps *PostgresStorage) UpdateUserRole(userID, role string) error {
+	query := `
+		UPDATE users
+		SET role = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+
+	result, err := ps.db.Exec(query, role, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update user role: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// DeleteUser deletes a user by ID
+func (ps *PostgresStorage) DeleteUser(userID string) error {
+	result, err := ps.db.Exec("DELETE FROM users WHERE id = $1", userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
