@@ -51,7 +51,7 @@ func (h *Handlers) Register(c *gin.Context) {
 	}
 
 	// Create user
-	user, err := h.storage.CreateUser(req.Username, req.Email, passwordHash)
+	user, err := h.storage.CreateUser(req.Username, req.Email, passwordHash, req.OrgID, req.Role)
 	if err != nil {
 		log.Printf("Failed to create user: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})

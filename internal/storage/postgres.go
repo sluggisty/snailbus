@@ -40,10 +40,10 @@ func NewPostgresStorage(dsn string) (*PostgresStorage, error) {
 }
 
 // SaveHost stores or updates a host's report (replaces any previous report)
-func (ps *PostgresStorage) SaveHost(report *models.Report) error {
+func (ps *PostgresStorage) SaveHost(report *models.Report, orgID, uploadedByUserID string) error {
 	query := `
-		INSERT INTO hosts (host_id, hostname, received_at, collection_id, timestamp, snail_version, data, errors)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO hosts (host_id, hostname, received_at, collection_id, timestamp, snail_version, data, errors, org_id, uploaded_by_user_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (host_id) DO UPDATE SET
 			hostname = EXCLUDED.hostname,
 			received_at = EXCLUDED.received_at,
@@ -51,7 +51,9 @@ func (ps *PostgresStorage) SaveHost(report *models.Report) error {
 			timestamp = EXCLUDED.timestamp,
 			snail_version = EXCLUDED.snail_version,
 			data = EXCLUDED.data,
-			errors = EXCLUDED.errors
+			errors = EXCLUDED.errors,
+			org_id = EXCLUDED.org_id,
+			uploaded_by_user_id = EXCLUDED.uploaded_by_user_id
 	`
 
 	var errors []string
@@ -68,6 +70,8 @@ func (ps *PostgresStorage) SaveHost(report *models.Report) error {
 		report.Meta.SnailVersion,
 		report.Data,
 		pq.Array(errors),
+		orgID,
+		uploadedByUserID,
 	)
 
 	if err != nil {
@@ -129,7 +133,7 @@ func (ps *PostgresStorage) DeleteHost(hostID string) error {
 // ListHosts returns all hosts with summary info
 func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
 	query := `
-		SELECT host_id, hostname, received_at, data
+		SELECT host_id, hostname, received_at, data, org_id, uploaded_by_user_id
 		FROM hosts
 		ORDER BY received_at DESC
 	`
@@ -147,8 +151,10 @@ func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
 		var hostname string
 		var receivedAt time.Time
 		var dataJSON []byte
+		var orgID string
+		var uploadedByUserID string
 
-		if err := rows.Scan(&hostID, &hostname, &receivedAt, &dataJSON); err != nil {
+		if err := rows.Scan(&hostID, &hostname, &receivedAt, &dataJSON, &orgID, &uploadedByUserID); err != nil {
 			return nil, fmt.Errorf("failed to scan host: %w", err)
 		}
 
@@ -179,14 +185,16 @@ func (ps *PostgresStorage) ListHosts() ([]*models.HostSummary, error) {
 		}
 
 		host := &models.HostSummary{
-			HostID:         hostID,
-			Hostname:       hostname,
-			OSName:         osName,
-			OSVersion:      osVersion,
-			OSVersionMajor: osVersionMajor,
-			OSVersionMinor: osVersionMinor,
-			OSVersionPatch: osVersionPatch,
-			LastSeen:       receivedAt,
+			HostID:           hostID,
+			Hostname:         hostname,
+			OSName:           osName,
+			OSVersion:        osVersion,
+			OSVersionMajor:   osVersionMajor,
+			OSVersionMinor:   osVersionMinor,
+			OSVersionPatch:   osVersionPatch,
+			OrgID:            orgID,
+			UploadedByUserID: uploadedByUserID,
+			LastSeen:         receivedAt,
 		}
 
 		hosts = append(hosts, host)
@@ -243,20 +251,22 @@ func (ps *PostgresStorage) Close() error {
 // Auth methods
 
 // CreateUser creates a new user
-func (ps *PostgresStorage) CreateUser(username, email, passwordHash string) (*models.User, error) {
+func (ps *PostgresStorage) CreateUser(username, email, passwordHash, orgID, role string) (*models.User, error) {
 	query := `
-		INSERT INTO users (username, email, password_hash)
-		VALUES ($1, $2, $3)
-		RETURNING id, username, email, is_active, is_admin, created_at, updated_at
+		INSERT INTO users (username, email, password_hash, org_id, role)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, username, email, is_active, is_admin, org_id, role, created_at, updated_at
 	`
 
 	user := &models.User{}
-	err := ps.db.QueryRow(query, username, email, passwordHash).Scan(
+	err := ps.db.QueryRow(query, username, email, passwordHash, orgID, role).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
 		&user.IsActive,
 		&user.IsAdmin,
+		&user.OrgID,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -271,7 +281,7 @@ func (ps *PostgresStorage) CreateUser(username, email, passwordHash string) (*mo
 // GetUserByUsername retrieves a user by username and returns the password hash
 func (ps *PostgresStorage) GetUserByUsername(username string) (*models.User, string, error) {
 	query := `
-		SELECT id, username, email, password_hash, is_active, is_admin, created_at, updated_at
+		SELECT id, username, email, password_hash, is_active, is_admin, org_id, role, created_at, updated_at
 		FROM users
 		WHERE username = $1
 	`
@@ -286,6 +296,8 @@ func (ps *PostgresStorage) GetUserByUsername(username string) (*models.User, str
 		&passwordHash,
 		&user.IsActive,
 		&user.IsAdmin,
+		&user.OrgID,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -303,7 +315,7 @@ func (ps *PostgresStorage) GetUserByUsername(username string) (*models.User, str
 // GetUserByID retrieves a user by ID
 func (ps *PostgresStorage) GetUserByID(userID string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, is_active, is_admin, created_at, updated_at
+		SELECT id, username, email, is_active, is_admin, org_id, role, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -315,6 +327,8 @@ func (ps *PostgresStorage) GetUserByID(userID string) (*models.User, error) {
 		&user.Email,
 		&user.IsActive,
 		&user.IsAdmin,
+		&user.OrgID,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -332,7 +346,7 @@ func (ps *PostgresStorage) GetUserByID(userID string) (*models.User, error) {
 // GetUserByEmail retrieves a user by email
 func (ps *PostgresStorage) GetUserByEmail(email string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, is_active, is_admin, created_at, updated_at
+		SELECT id, username, email, is_active, is_admin, org_id, role, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
@@ -344,6 +358,8 @@ func (ps *PostgresStorage) GetUserByEmail(email string) (*models.User, error) {
 		&user.Email,
 		&user.IsActive,
 		&user.IsAdmin,
+		&user.OrgID,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

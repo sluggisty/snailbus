@@ -15,7 +15,7 @@ var (
 // Storage defines the interface for storing and retrieving host reports
 type Storage interface {
 	// SaveHost stores or updates a host's report
-	SaveHost(report *models.Report) error
+	SaveHost(report *models.Report, orgID, uploadedByUserID string) error
 
 	// GetHost returns the full report data for a specific host by host_id (UUID)
 	GetHost(hostID string) (*models.Report, error)
@@ -33,7 +33,7 @@ type Storage interface {
 	Close() error
 
 	// Auth methods
-	CreateUser(username, email, passwordHash string) (*models.User, error)
+	CreateUser(username, email, passwordHash, orgID, role string) (*models.User, error)
 	GetUserByUsername(username string) (*models.User, string, error) // Returns user and password hash
 	GetUserByID(userID string) (*models.User, error)
 	GetUserByEmail(email string) (*models.User, error)

@@ -100,6 +100,21 @@ func (h *Handlers) Ingest(c *gin.Context) {
 		return
 	}
 
+	// Get user_id and org_id from context (set by AuthMiddleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	userObj := user.(*models.User)
+
 	// Create report
 	now := time.Now().UTC()
 	report := &models.Report{
@@ -111,7 +126,8 @@ func (h *Handlers) Ingest(c *gin.Context) {
 	}
 
 	// Store the report (replaces any previous data for this host)
-	if err := h.storage.SaveHost(report); err != nil {
+	// Associate the host with the authenticated user's organization and user ID
+	if err := h.storage.SaveHost(report, userObj.OrgID, userID.(string)); err != nil {
 		log.Printf("Failed to save host data for %s: %v", req.Meta.Hostname, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store host data"})
 		return
