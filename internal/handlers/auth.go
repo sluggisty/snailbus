@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"snailbus/internal/auth"
+	"snailbus/internal/middleware"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
 )
@@ -377,15 +378,15 @@ func (h *Handlers) GetAPIKeyFromCredentials(c *gin.Context) {
 // @Failure     403      {object}  map[string]string  "Forbidden - admin role required"
 // @Router      /api/v1/users [get]
 func (h *Handlers) ListUsers(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
+	// Example: Using OrgContextMiddleware helper functions
+	// Alternative: user, _ := c.Get("user"); userObj := user.(*models.User); orgID := userObj.OrgID
+	orgID := middleware.GetOrgID(c)
+	if orgID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	userObj := user.(*models.User)
-
-	users, err := h.storage.ListUsersByOrganization(userObj.OrgID)
+	users, err := h.storage.ListUsersByOrganization(orgID)
 	if err != nil {
 		log.Printf("Failed to list users: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve users"})

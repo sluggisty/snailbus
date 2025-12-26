@@ -85,6 +85,7 @@ func main() {
 		// Protected routes (require API key authentication)
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(store))
+		protected.Use(middleware.OrgContextMiddleware()) // Extract org_id and role for easy access
 		{
 			// Auth endpoints - accessible to all authenticated users
 			protected.GET("/auth/me", h.GetMe)
@@ -119,6 +120,7 @@ func main() {
 		// Ingest endpoint - requires editor or admin role (viewers cannot upload)
 		ingest := v1.Group("")
 		ingest.Use(middleware.AuthMiddleware(store))
+		ingest.Use(middleware.OrgContextMiddleware()) // Extract org_id and role
 		ingest.Use(middleware.RequireRole("editor", "admin"))
 		{
 			ingest.POST("/ingest", h.Ingest)
