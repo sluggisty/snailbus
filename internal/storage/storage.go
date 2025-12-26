@@ -49,6 +49,11 @@ type Storage interface {
 	GetOrganizationByID(orgID string) (*models.Organization, error)
 	GetOrganizationByName(name string) (*models.Organization, error)
 	CountUsersInOrganization(orgID string) (int, error)
+
+	// User management methods (admin-only)
+	ListUsersByOrganization(orgID string) ([]*models.User, error)
+	UpdateUserRole(userID, role string) error
+	DeleteUser(userID string) error
 }
 
 

@@ -63,3 +63,16 @@ type LoginResponse struct {
 	Token string `json:"token"` // API key for this session
 }
 
+// CreateUserRequest is used by admins to create new users
+type CreateUserRequest struct {
+	Username string `json:"username" binding:"required,min=3,max=50"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
+	Role     string `json:"role" binding:"required,oneof=admin editor viewer"`
+}
+
+// UpdateUserRoleRequest is used by admins to update a user's role
+type UpdateUserRoleRequest struct {
+	Role string `json:"role" binding:"required,oneof=admin editor viewer"`
+}
+

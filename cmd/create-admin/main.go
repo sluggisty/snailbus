@@ -37,6 +37,11 @@ func main() {
 		adminEmail = "admin@localhost"
 	}
 
+	adminOrgName := os.Getenv("ADMIN_ORG_NAME")
+	if adminOrgName == "" {
+		adminOrgName = "Default Organization"
+	}
+
 	// Run migrations first
 	if err := runMigrations(databaseURL); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
@@ -61,14 +66,42 @@ func main() {
 		log.Fatalf("Error checking for existing user: %v", err)
 	}
 
+	// Check if organization already exists
+	org, err := store.GetOrganizationByName(adminOrgName)
+	if err != nil && err != storage.ErrNotFound {
+		log.Fatalf("Error checking for existing organization: %v", err)
+	}
+
+	var orgID string
+	if err == storage.ErrNotFound {
+		// Create organization if it doesn't exist
+		org, err = store.CreateOrganization(adminOrgName)
+		if err != nil {
+			log.Fatalf("Failed to create organization: %v", err)
+		}
+		log.Printf("Created organization '%s' with ID: %s", adminOrgName, org.ID)
+		orgID = org.ID
+	} else {
+		// Organization exists, check if it has users
+		userCount, err := store.CountUsersInOrganization(org.ID)
+		if err != nil {
+			log.Fatalf("Error counting users in organization: %v", err)
+		}
+		if userCount > 0 {
+			log.Fatalf("Organization '%s' already has users. Cannot create admin user in existing organization.", adminOrgName)
+		}
+		orgID = org.ID
+		log.Printf("Using existing organization '%s' with ID: %s", adminOrgName, org.ID)
+	}
+
 	// Hash password
 	passwordHash, err := auth.HashPassword(adminPassword)
 	if err != nil {
 		log.Fatalf("Failed to hash password: %v", err)
 	}
 
-	// Create admin user
-	user, err := store.CreateUser(adminUsername, adminEmail, passwordHash)
+	// Create admin user with admin role
+	user, err := store.CreateUser(adminUsername, adminEmail, passwordHash, orgID, "admin")
 	if err != nil {
 		log.Fatalf("Failed to create admin user: %v", err)
 	}

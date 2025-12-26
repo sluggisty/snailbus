@@ -367,4 +367,241 @@ func (h *Handlers) GetAPIKeyFromCredentials(c *gin.Context) {
 	})
 }
 
+// ListUsers lists all users in the current organization (admin-only)
+// @Summary     List users in organization
+// @Description Returns all users in the authenticated user's organization
+// @Tags        Users
+// @Produce     json
+// @Security    ApiKeyAuth
+// @Success     200      {object}  map[string]interface{}  "List of users"
+// @Failure     403      {object}  map[string]string  "Forbidden - admin role required"
+// @Router      /api/v1/users [get]
+func (h *Handlers) ListUsers(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	userObj := user.(*models.User)
+
+	users, err := h.storage.ListUsersByOrganization(userObj.OrgID)
+	if err != nil {
+		log.Printf("Failed to list users: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve users"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"users": users,
+		"total": len(users),
+	})
+}
+
+// CreateUser creates a new user in the current organization (admin-only)
+// @Summary     Create user
+// @Description Creates a new user in the authenticated user's organization
+// @Tags        Users
+// @Accept      json
+// @Produce     json
+// @Security    ApiKeyAuth
+// @Param       request  body      models.CreateUserRequest  true  "User creation data"
+// @Success     201      {object}  models.User  "User created"
+// @Failure     400      {object}  map[string]string  "Invalid request"
+// @Failure     403      {object}  map[string]string  "Forbidden - admin role required"
+// @Failure     409      {object}  map[string]string  "User already exists"
+// @Router      /api/v1/users [post]
+func (h *Handlers) CreateUser(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	userObj := user.(*models.User)
+
+	var req models.CreateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Check if username already exists
+	_, _, err := h.storage.GetUserByUsername(req.Username)
+	if err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
+		return
+	}
+
+	// Check if email already exists
+	_, err = h.storage.GetUserByEmail(req.Email)
+	if err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "email already exists"})
+		return
+	}
+
+	// Hash password
+	passwordHash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		log.Printf("Failed to hash password: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
+		return
+	}
+
+	// Create user in the current organization
+	newUser, err := h.storage.CreateUser(req.Username, req.Email, passwordHash, userObj.OrgID, req.Role)
+	if err != nil {
+		log.Printf("Failed to create user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, newUser)
+}
+
+// UpdateUserRole updates a user's role (admin-only)
+// @Summary     Update user role
+// @Description Updates the role of a user in the current organization. Admins cannot update their own role.
+// @Tags        Users
+// @Accept      json
+// @Produce     json
+// @Security    ApiKeyAuth
+// @Param       user_id  path      string  true  "User ID"
+// @Param       request  body      models.UpdateUserRoleRequest  true  "Role update data"
+// @Success     200      {object}  models.User  "User updated"
+// @Failure     400      {object}  map[string]string  "Invalid request"
+// @Failure     403      {object}  map[string]string  "Forbidden - admin role required or cannot update own role"
+// @Failure     404      {object}  map[string]string  "User not found"
+// @Router      /api/v1/users/{user_id}/role [put]
+func (h *Handlers) UpdateUserRole(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	currentUser := user.(*models.User)
+	userID := c.Param("user_id")
+
+	// Prevent users from updating their own role
+	if currentUser.ID == userID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "cannot update own role",
+			"message": "You cannot update your own role. Ask another admin to update it for you.",
+		})
+		return
+	}
+
+	// Verify the target user is in the same organization
+	targetUser, err := h.storage.GetUserByID(userID)
+	if err != nil {
+		if err == storage.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		log.Printf("Failed to get user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user"})
+		return
+	}
+
+	if targetUser.OrgID != currentUser.OrgID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "user not in your organization",
+			"message": "You can only update users in your own organization.",
+		})
+		return
+	}
+
+	var req models.UpdateUserRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update the user's role
+	if err := h.storage.UpdateUserRole(userID, req.Role); err != nil {
+		if err == storage.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		log.Printf("Failed to update user role: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user role"})
+		return
+	}
+
+	// Fetch updated user
+	updatedUser, err := h.storage.GetUserByID(userID)
+	if err != nil {
+		log.Printf("Failed to get updated user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve updated user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedUser)
+}
+
+// DeleteUser deletes a user from the current organization (admin-only)
+// @Summary     Delete user
+// @Description Deletes a user from the current organization. Admins cannot delete themselves.
+// @Tags        Users
+// @Produce     json
+// @Security    ApiKeyAuth
+// @Param       user_id  path      string  true  "User ID"
+// @Success     204      "User deleted"
+// @Failure     403      {object}  map[string]string  "Forbidden - admin role required or cannot delete self"
+// @Failure     404      {object}  map[string]string  "User not found"
+// @Router      /api/v1/users/{user_id} [delete]
+func (h *Handlers) DeleteUser(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	currentUser := user.(*models.User)
+	userID := c.Param("user_id")
+
+	// Prevent users from deleting themselves
+	if currentUser.ID == userID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "cannot delete yourself",
+			"message": "You cannot delete your own account. Ask another admin to delete it for you.",
+		})
+		return
+	}
+
+	// Verify the target user is in the same organization
+	targetUser, err := h.storage.GetUserByID(userID)
+	if err != nil {
+		if err == storage.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		log.Printf("Failed to get user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user"})
+		return
+	}
+
+	if targetUser.OrgID != currentUser.OrgID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "user not in your organization",
+			"message": "You can only delete users in your own organization.",
+		})
+		return
+	}
+
+	// Delete the user
+	if err := h.storage.DeleteUser(userID); err != nil {
+		if err == storage.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		log.Printf("Failed to delete user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 
