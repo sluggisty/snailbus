@@ -53,6 +53,8 @@ type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8"`
+	OrgID    string `json:"org_id" binding:"required"`    // Required organization ID
+	Role     string `json:"role" binding:"required,oneof=admin editor viewer"` // Required role: admin, editor, or viewer
 }
 
 // LoginResponse is returned after successful login
