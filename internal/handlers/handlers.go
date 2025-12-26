@@ -38,9 +38,10 @@ func New(store storage.Storage) *Handlers {
 // @Success     503  {object}  map[string]string  "Service is unhealthy or database is disconnected"
 // @Router      /health [get]
 func (h *Handlers) Health(c *gin.Context) {
-	// Check database connection by trying to list hosts (lightweight operation)
-	_, err := h.storage.ListHosts()
-	if err != nil {
+	// Check database connection by trying a simple query
+	// Note: Health check doesn't require org context, so we use a simple query
+	_, err := h.storage.GetOrganizationByID("00000000-0000-0000-0000-000000000000")
+	if err != nil && err != storage.ErrNotFound {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"status":   "error",
 			"service":  "snailbus",
@@ -145,17 +146,25 @@ func (h *Handlers) Ingest(c *gin.Context) {
 	})
 }
 
-// ListHosts returns a list of all known hosts
+// ListHosts returns a list of all known hosts in the current organization
 // @Summary     List all hosts
-// @Description Returns a list of all known hosts with summary information. Each host entry includes the hostname and last seen timestamp.
+// @Description Returns a list of all known hosts with summary information for the authenticated user's organization. Each host entry includes the hostname and last seen timestamp.
 // @Tags        Hosts
 // @Accept      json
 // @Produce     json
+// @Security    ApiKeyAuth
 // @Success     200  {object}  map[string]interface{}  "List of hosts with total count"
+// @Failure     401  {object}  map[string]string       "Unauthorized"
 // @Failure     500  {object}  map[string]string       "Internal server error"
 // @Router      /api/v1/hosts [get]
 func (h *Handlers) ListHosts(c *gin.Context) {
-	hosts, err := h.storage.ListHosts()
+	orgID := middleware.GetOrgID(c)
+	if orgID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	hosts, err := h.storage.ListHosts(orgID)
 	if err != nil {
 		log.Printf("Failed to list hosts: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve hosts"})
@@ -170,13 +179,15 @@ func (h *Handlers) ListHosts(c *gin.Context) {
 
 // GetHost returns the full data for a specific host
 // @Summary     Get host data
-// @Description Returns the complete collection report for a specific host, including all collected data and metadata, identified by its host ID.
+// @Description Returns the complete collection report for a specific host in the authenticated user's organization, including all collected data and metadata, identified by its host ID.
 // @Tags        Hosts
 // @Accept      json
 // @Produce     json
+// @Security    ApiKeyAuth
 // @Param       host_id  path      string  true  "Unique identifier (UUID) of the host to retrieve"
 // @Success     200       {object}  models.Report  "Host data"
 // @Failure     400       {object}  map[string]string  "Missing host_id parameter"
+// @Failure     401       {object}  map[string]string  "Unauthorized"
 // @Failure     404       {object}  map[string]string  "Host not found"
 // @Failure     500       {object}  map[string]string  "Internal server error"
 // @Router      /api/v1/hosts/{host_id} [get]
@@ -187,7 +198,13 @@ func (h *Handlers) GetHost(c *gin.Context) {
 		return
 	}
 
-	report, err := h.storage.GetHost(hostID)
+	orgID := middleware.GetOrgID(c)
+	if orgID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	report, err := h.storage.GetHost(hostID, orgID)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "host not found"})
@@ -203,13 +220,15 @@ func (h *Handlers) GetHost(c *gin.Context) {
 
 // DeleteHost removes a host
 // @Summary     Delete host
-// @Description Removes a host and all its associated data from the system. This operation cannot be undone. Uses host_id (UUID) as the identifier.
+// @Description Removes a host and all its associated data from the authenticated user's organization. This operation cannot be undone. Uses host_id (UUID) as the identifier.
 // @Tags        Hosts
 // @Accept      json
 // @Produce     json
+// @Security    ApiKeyAuth
 // @Param       host_id  path      string  true  "Host ID (UUID) of the host to delete"
 // @Success     204       "Host successfully deleted"
 // @Failure     400       {object}  map[string]string  "Missing host_id parameter"
+// @Failure     401       {object}  map[string]string  "Unauthorized"
 // @Failure     404       {object}  map[string]string  "Host not found"
 // @Failure     500       {object}  map[string]string  "Internal server error"
 // @Router      /api/v1/hosts/{host_id} [delete]
@@ -220,7 +239,13 @@ func (h *Handlers) DeleteHost(c *gin.Context) {
 		return
 	}
 
-	if err := h.storage.DeleteHost(hostID); err != nil {
+	orgID := middleware.GetOrgID(c)
+	if orgID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	if err := h.storage.DeleteHost(hostID, orgID); err != nil {
 		if err == storage.ErrNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "host not found"})
 			return
