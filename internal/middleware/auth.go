@@ -135,3 +135,59 @@ func AdminMiddleware(store storage.Storage) gin.HandlerFunc {
 	}
 }
 
+// RequireRole creates middleware that checks if the authenticated user has one of the required roles
+// This middleware must be used after AuthMiddleware, which sets the "user" in the context
+// 
+// Example usage:
+//   // Require admin role
+//   protected.Use(middleware.RequireRole("admin"))
+//   
+//   // Require either admin or editor role
+//   protected.Use(middleware.RequireRole("admin", "editor"))
+func RequireRole(requiredRoles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user from context (set by AuthMiddleware)
+		userValue, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+				"message": "User not found in context. Ensure AuthMiddleware is applied before RequireRole.",
+			})
+			c.Abort()
+			return
+		}
+
+		user, ok := userValue.(*models.User)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "internal server error",
+				"message": "Invalid user type in context",
+			})
+			c.Abort()
+			return
+		}
+
+		// Check if user's role matches any of the required roles
+		hasRequiredRole := false
+		for _, requiredRole := range requiredRoles {
+			if user.Role == requiredRole {
+				hasRequiredRole = true
+				break
+			}
+		}
+
+		if !hasRequiredRole {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "insufficient role",
+				"message": "Your role does not have permission to access this resource",
+				"required_roles": requiredRoles,
+				"your_role": user.Role,
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
