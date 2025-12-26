@@ -164,3 +164,83 @@ Returned by `RequireRole` when:
 - `editor`: Can create, update, and delete resources
 - `viewer`: Read-only access
 
+### OrgContextMiddleware
+
+Extracts organization ID and role from the authenticated user and makes them easily accessible in handlers.
+
+**Signature:**
+```go
+func OrgContextMiddleware() gin.HandlerFunc
+```
+
+**Usage:**
+```go
+protected := v1.Group("")
+protected.Use(middleware.AuthMiddleware(store))
+protected.Use(middleware.OrgContextMiddleware())
+{
+    protected.GET("/hosts", h.ListHosts)
+}
+```
+
+**Context Values Set:**
+- `org_id` (string): The authenticated user's organization ID
+- `role` (string): The authenticated user's role
+
+**Helper Functions:**
+
+Handlers can use these convenience functions to access context values:
+
+```go
+import "snailbus/internal/middleware"
+
+func (h *Handlers) MyHandler(c *gin.Context) {
+    orgID := middleware.GetOrgID(c)
+    role := middleware.GetRole(c)
+    userID := middleware.GetUserID(c)
+    
+    // Use orgID, role, userID in your handler logic
+}
+```
+
+**Example Handler Usage:**
+
+```go
+func (h *Handlers) ListHosts(c *gin.Context) {
+    orgID := middleware.GetOrgID(c)
+    if orgID == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+        return
+    }
+    
+    // Filter hosts by organization
+    hosts, err := h.storage.ListHostsByOrganization(orgID)
+    // ...
+}
+
+func (h *Handlers) CreateResource(c *gin.Context) {
+    orgID := middleware.GetOrgID(c)
+    role := middleware.GetRole(c)
+    
+    // Only admins and editors can create
+    if role != "admin" && role != "editor" {
+        c.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+        return
+    }
+    
+    // Create resource with orgID
+    // ...
+}
+```
+
+**Direct Context Access:**
+
+You can also access values directly from context:
+
+```go
+orgID, _ := c.Get("org_id")
+role, _ := c.Get("role")
+```
+
+**Note:** `OrgContextMiddleware` must be used **after** `AuthMiddleware`, as it depends on the `user` object being set in the context.
+

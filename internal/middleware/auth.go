@@ -191,3 +191,90 @@ func RequireRole(requiredRoles ...string) gin.HandlerFunc {
 	}
 }
 
+// OrgContextMiddleware extracts organization ID and role from the authenticated user
+// and makes them easily accessible in handlers via context keys.
+// This middleware must be used after AuthMiddleware, which sets the "user" in the context.
+//
+// After this middleware, handlers can access:
+//   - org_id: via GetOrgID(c) or c.Get("org_id")
+//   - role: via GetRole(c) or c.Get("role")
+//
+// Example usage:
+//   protected := v1.Group("")
+//   protected.Use(middleware.AuthMiddleware(store))
+//   protected.Use(middleware.OrgContextMiddleware())
+//   {
+//       protected.GET("/hosts", h.ListHosts) // Can use GetOrgID(c) in handler
+//   }
+func OrgContextMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user from context (set by AuthMiddleware)
+		userValue, exists := c.Get("user")
+		if !exists {
+			// If user is not in context, this middleware should not be used
+			// or AuthMiddleware was not applied first
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+				"message": "User not found in context. Ensure AuthMiddleware is applied before OrgContextMiddleware.",
+			})
+			c.Abort()
+			return
+		}
+
+		user, ok := userValue.(*models.User)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "internal server error",
+				"message": "Invalid user type in context",
+			})
+			c.Abort()
+			return
+		}
+
+		// Extract and set org_id and role for easy access
+		c.Set("org_id", user.OrgID)
+		c.Set("role", user.Role)
+
+		c.Next()
+	}
+}
+
+// GetOrgID retrieves the organization ID from the context
+// Returns empty string if not found (should not happen if OrgContextMiddleware is used)
+func GetOrgID(c *gin.Context) string {
+	orgID, exists := c.Get("org_id")
+	if !exists {
+		return ""
+	}
+	if orgIDStr, ok := orgID.(string); ok {
+		return orgIDStr
+	}
+	return ""
+}
+
+// GetRole retrieves the user's role from the context
+// Returns empty string if not found (should not happen if OrgContextMiddleware is used)
+func GetRole(c *gin.Context) string {
+	role, exists := c.Get("role")
+	if !exists {
+		return ""
+	}
+	if roleStr, ok := role.(string); ok {
+		return roleStr
+	}
+	return ""
+}
+
+// GetUserID retrieves the user ID from the context
+// This is a convenience function for consistency
+func GetUserID(c *gin.Context) string {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		return ""
+	}
+	if userIDStr, ok := userID.(string); ok {
+		return userIDStr
+	}
+	return ""
+}
+
