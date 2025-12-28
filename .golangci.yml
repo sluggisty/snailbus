@@ -75,7 +75,6 @@ linters-settings:
   
   # revive settings
   revive:
-    min-confidence: 0.8
     rules:
       - name: exported
         severity: warning
@@ -99,10 +98,6 @@ linters-settings:
   # govet settings
   govet:
     enable-all: true
-  
-  # shadow settings (replaces govet.check-shadowing)
-  shadow:
-    strict: false
   
   # staticcheck settings (disabled - typecheck gives false positives)
   # staticcheck:
@@ -184,13 +179,13 @@ issues:
   
   # Exclude some linters from exclude rules
   exclude-rules:
-    # Exclude typecheck from main.go and handlers.go (false positives)
-    - path: main\.go
-      linters:
+    # Exclude typecheck errors (false positives - code compiles successfully)
+    - linters:
         - typecheck
-    - path: internal/handlers/handlers\.go
-      linters:
+      text: "undefined: migrate"
+    - linters:
         - typecheck
+      text: "undefined: yaml"
     
     # Exclude some linters from running on tests files
     - path: _test\.go
