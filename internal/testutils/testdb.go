@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -59,10 +60,41 @@ func RunMigrations(db *sql.DB) error {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
 
-	// Get migrations directory from environment or use default
+	// Get migrations directory from environment or find it dynamically
 	migrationsPath := os.Getenv("MIGRATIONS_PATH")
 	if migrationsPath == "" {
-		migrationsPath = "file://migrations"
+		// Find migrations directory by traversing up from current directory
+		// until we find a directory containing "migrations"
+		wd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get working directory: %w", err)
+		}
+
+		// Traverse up the directory tree to find migrations folder
+		dir := wd
+		var migrationsDir string
+		for {
+			testPath := filepath.Join(dir, "migrations")
+			if _, err := os.Stat(testPath); err == nil {
+				// Found it!
+				migrationsDir = testPath
+				break
+			}
+
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				// Reached root, migrations not found
+				return fmt.Errorf("migrations directory not found")
+			}
+			dir = parent
+		}
+
+		absPath, err := filepath.Abs(migrationsDir)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path: %w", err)
+		}
+
+		migrationsPath = "file://" + absPath
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
