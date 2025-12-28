@@ -1,0 +1,128 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  test:
+    name: Test on Go ${{ matrix.go-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['1.24', '1.25']
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: snail
+          POSTGRES_PASSWORD: snail_secret
+          POSTGRES_DB: snailbus_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      TEST_DATABASE_URL: postgres://snail:snail_secret@localhost:5432/snailbus_test?sslmode=disable
+      GIN_MODE: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Swagger docs
+        working-directory: ${{ github.workspace }}
+        run: |
+          $HOME/go/bin/swag init -g main.go -o docs --parseDependency --parseInternal
+          # Verify docs were generated
+          if [ ! -f "docs/docs.go" ]; then
+            echo "Error: docs/docs.go was not generated"
+            exit 1
+          fi
+          echo "Swagger docs generated successfully"
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U snail; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+
+      - name: Install golang-migrate
+        run: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+      - name: Set migrations path
+        working-directory: ${{ github.workspace }}
+        run: |
+          MIGRATIONS_ABS_PATH=$(pwd)/migrations
+          echo "MIGRATIONS_PATH=file://$MIGRATIONS_ABS_PATH" >> $GITHUB_ENV
+          echo "Set MIGRATIONS_PATH to: file://$MIGRATIONS_ABS_PATH"
+
+      - name: Run database migrations
+        working-directory: ${{ github.workspace }}
+        run: $HOME/go/bin/migrate -path migrations -database "$TEST_DATABASE_URL" up
+
+      - name: Run unit tests
+        working-directory: ${{ github.workspace }}
+        run: go test -short -v -p 1 ./...
+
+      - name: Run integration tests
+        working-directory: ${{ github.workspace }}
+        run: go test -v -run Integration -p 1 ./...
+
+      - name: Generate test coverage
+        if: matrix.go-version == '1.24'
+        working-directory: ${{ github.workspace }}
+        run: |
+          go test -p 1 -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -html=coverage.out -o coverage.html
+          echo "Coverage report generated: coverage.html"
+
+      - name: Upload coverage to artifacts
+        if: matrix.go-version == '1.24' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.html
+          retention-days: 7
+
