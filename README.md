@@ -1,6 +1,8 @@
 # Snailbus
 
 ![Snailbus Logo](snailbus.png)
+![Tests](https://github.com/sluggisty/snailbus/workflows/Tests/badge.svg)
+[![codecov](https://codecov.io/gh/sluggisty/snailbus/branch/main/graph/badge.svg)](https://codecov.io/gh/sluggisty/snailbus)
 
 Backend service to display system information uploaded by snail-core.
 

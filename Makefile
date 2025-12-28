@@ -1,4 +1,4 @@
-.PHONY: build run test test-unit test-integration test-coverage test-docker test-integration-docker test-docker-up test-docker-down test-docker-clean clean generate-openapi validate-openapi swag help
+.PHONY: build run test test-unit test-integration test-coverage test-coverage-all test-coverage-percent test-docker test-integration-docker test-docker-up test-docker-down test-docker-clean clean generate-openapi validate-openapi swag help
 
 # Build the main application
 build:
@@ -68,12 +68,49 @@ test-docker: test-docker-up
 	$(MAKE) test-docker-down; \
 	exit $$EXIT_CODE
 
-# Run tests with coverage report
+# Run tests with coverage report (unit tests only, excludes database-dependent packages)
+# Excludes internal/storage and internal/integration which require a database
 test-coverage:
-	go test -coverprofile=coverage.out -covermode=atomic ./...
+	go test -p 1 -short -coverprofile=coverage.out -covermode=atomic \
+		./internal/handlers \
+		./internal/auth \
+		./internal/middleware \
+		./internal/models
 	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
-	go tool cover -func=coverage.out
+	@echo ""
+	@echo "=== Coverage Summary ==="
+	@go tool cover -func=coverage.out
+	@echo ""
+	@echo "Total coverage:"
+	@go tool cover -func=coverage.out | tail -1
+	@echo ""
+	@echo "HTML report generated: coverage.html"
+	@echo "Text report: coverage.out"
+	@echo ""
+	@echo "Note: This report includes unit tests only (excludes database-dependent packages)."
+	@echo "      Use 'make test-coverage-all' to include all tests (requires database)."
+
+# Run tests with coverage report including integration tests (requires database)
+test-coverage-all:
+	@if [ -z "$$TEST_DATABASE_URL" ]; then \
+		echo "Warning: TEST_DATABASE_URL not set, using default"; \
+		echo "Tip: Use 'make test-docker-up' to start a test database"; \
+	fi
+	go test -p 1 -coverprofile=coverage.out -covermode=atomic ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo ""
+	@echo "=== Coverage Summary ==="
+	@go tool cover -func=coverage.out
+	@echo ""
+	@echo "Total coverage:"
+	@go tool cover -func=coverage.out | tail -1
+	@echo ""
+	@echo "HTML report generated: coverage.html"
+	@echo "Text report: coverage.out"
+
+# Get coverage percentage (for scripts/CI)
+test-coverage-percent:
+	@go tool cover -func=coverage.out 2>/dev/null | tail -1 | awk '{print $$3}' || echo "0.0%"
 
 
 # Build the OpenAPI generator tool
@@ -131,7 +168,9 @@ help:
 	@echo "  test-integration   - Run integration tests (requires database)"
 	@echo "  test-docker        - Run all tests (unit + integration) with docker-compose (auto-starts/stops DB)"
 	@echo "  test-integration-docker - Run integration tests with docker-compose (auto-starts/stops DB)"
-	@echo "  test-coverage      - Run tests and generate coverage report"
+	@echo "  test-coverage      - Run unit tests and generate coverage report (no database required)"
+	@echo "  test-coverage-all  - Run all tests with coverage including integration tests (requires database)"
+	@echo "  test-coverage-percent - Get coverage percentage only (for scripts)"
 	@echo "  test-docker-up     - Start test database with docker-compose"
 	@echo "  test-docker-down   - Stop test database"
 	@echo "  test-docker-clean  - Stop and remove test database (cleanup)"
