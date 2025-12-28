@@ -12,6 +12,7 @@ cmd/validate-openapi/validate-openapi
 
 # Output of the go coverage tool
 *.out
+coverage.html
 
 # Dependency directories
 vendor/

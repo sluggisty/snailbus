@@ -114,15 +114,53 @@ jobs:
         if: matrix.go-version == '1.24'
         working-directory: ${{ github.workspace }}
         run: |
+          # Run coverage for all tests (unit + integration) since we have a database
           go test -p 1 -coverprofile=coverage.out -covermode=atomic ./...
           go tool cover -html=coverage.out -o coverage.html
           echo "Coverage report generated: coverage.html"
+          echo ""
+          echo "=== Coverage Summary ==="
+          go tool cover -func=coverage.out | tail -1
+          echo ""
+          # Extract coverage percentage for summary
+          COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}')
+          echo "COVERAGE_PERCENTAGE=$COVERAGE" >> $GITHUB_ENV
+          echo "Total coverage: $COVERAGE"
 
-      - name: Upload coverage to artifacts
+      - name: Upload coverage reports
         if: matrix.go-version == '1.24' && always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: coverage.html
-          retention-days: 7
+          name: coverage-reports
+          path: |
+            coverage.out
+            coverage.html
+          retention-days: 30
+
+      - name: Upload coverage to Codecov
+        if: matrix.go-version == '1.24'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+
+      - name: Coverage summary
+        if: matrix.go-version == '1.24' && always()
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ -f coverage.out ]; then
+            echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Package Coverage" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            go tool cover -func=coverage.out >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}')
+            echo "**Total Coverage: $COVERAGE**" >> $GITHUB_STEP_SUMMARY
+          fi
 

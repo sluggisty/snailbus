@@ -196,6 +196,9 @@ func createTestReport(hostID, hostname string) *models.Report {
 // ============================================================================
 
 func TestPostgresStorage_SaveHost(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping database test in short mode")
+	}
 	store, cleanup := setupTestStorage(t)
 	defer cleanup()
 
