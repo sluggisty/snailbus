@@ -1,0 +1,58 @@
+#!/bin/bash
+# Pre-commit hook for Snailbus
+# This script runs code quality checks before allowing a commit
+#
+# Installation:
+#   cp scripts/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Not in a git repository"
+    exit 1
+fi
+
+# Get the project root directory
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_ROOT"
+
+# Check if Makefile exists
+if [ ! -f Makefile ]; then
+    echo "Error: Makefile not found"
+    exit 1
+fi
+
+# Run formatting check
+echo "Checking code formatting..."
+if ! make fmt-check > /dev/null 2>&1; then
+    echo ""
+    echo "❌ Code formatting check failed!"
+    echo "   Please run 'make format' to fix formatting issues"
+    echo ""
+    make fmt-check
+    exit 1
+fi
+
+# Run linter (only if golangci-lint is available)
+if command -v golangci-lint > /dev/null 2>&1; then
+    echo "Running linter..."
+    if ! make lint > /dev/null 2>&1; then
+        echo ""
+        echo "❌ Linting failed!"
+        echo "   Please fix the linting issues above"
+        echo ""
+        make lint
+        exit 1
+    fi
+else
+    echo "⚠️  golangci-lint not found, skipping lint check"
+    echo "   Install it with: make install-linter"
+fi
+
+echo "✅ All pre-commit checks passed!"
+exit 0
+

@@ -1,4 +1,4 @@
-.PHONY: build run test test-unit test-integration test-coverage test-coverage-all test-coverage-percent test-docker test-integration-docker test-docker-up test-docker-down test-docker-clean clean swag generate-spec help
+.PHONY: build run test test-unit test-integration test-coverage test-coverage-all test-coverage-percent test-docker test-integration-docker test-docker-up test-docker-down test-docker-clean clean swag generate-spec lint format fmt-check check install-linter help
 
 # Build the main application
 build:
@@ -129,6 +129,73 @@ swag:
 # Generate OpenAPI spec (alias for swag)
 generate-spec: swag
 
+# Code Quality and Linting
+# ============================================================================
+
+# Get golangci-lint path (check PATH first, then GOPATH/bin)
+GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
+
+# Install golangci-lint if not present
+install-linter:
+	@if [ ! -f "$(GOLANGCI_LINT)" ] && [ ! -x "$(GOLANGCI_LINT)" ]; then \
+		echo "Installing golangci-lint..."; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.60.1; \
+		echo "golangci-lint installed to $$(go env GOPATH)/bin"; \
+		echo "Note: Make sure $$(go env GOPATH)/bin is in your PATH"; \
+	else \
+		echo "golangci-lint is already installed at $(GOLANGCI_LINT)"; \
+	fi
+
+# Run golangci-lint
+lint: install-linter
+	@echo "Downloading Go modules..."
+	@go mod download
+	@echo "Running golangci-lint..."
+	@if [ ! -f "$(GOLANGCI_LINT)" ] && [ ! -x "$(GOLANGCI_LINT)" ]; then \
+		echo "Error: golangci-lint not found at $(GOLANGCI_LINT)"; \
+		echo "Please ensure $$(go env GOPATH)/bin is in your PATH, or run: export PATH=\$$PATH:$$(go env GOPATH)/bin"; \
+		exit 1; \
+	fi
+	@$(GOLANGCI_LINT) run --disable=typecheck ./...
+
+# Format code with gofmt and goimports
+format:
+	@echo "Formatting code with gofmt..."
+	@gofmt -s -w .
+	@echo "Formatting imports with goimports..."
+	@if command -v goimports > /dev/null; then \
+		goimports -w -local snailbus .; \
+	else \
+		echo "goimports not found, installing..."; \
+		go install golang.org/x/tools/cmd/goimports@latest; \
+		$$(go env GOPATH)/bin/goimports -w -local snailbus .; \
+	fi
+	@echo "Code formatted successfully"
+
+# Check if code is formatted (for CI)
+fmt-check:
+	@echo "Checking code formatting..."
+	@if [ $$(gofmt -s -l . | wc -l) -gt 0 ]; then \
+		echo "Error: Code is not formatted. Run 'make format' to fix."; \
+		gofmt -s -d .; \
+		exit 1; \
+	fi
+	@if command -v goimports > /dev/null; then \
+		OUTPUT=$$(goimports -l -local snailbus .); \
+		if [ -n "$$OUTPUT" ]; then \
+			echo "Error: Imports are not formatted. Run 'make format' to fix."; \
+			echo "$$OUTPUT"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "goimports not found, skipping import check"; \
+	fi
+	@echo "Code formatting check passed"
+
+# Run all code quality checks (formatting + linting)
+check: fmt-check lint
+	@echo "All code quality checks passed"
+
 # Clean coverage reports
 clean:
 	rm -f snailbus
@@ -154,5 +221,9 @@ help:
 	@echo "  clean              - Remove build artifacts and coverage reports"
 	@echo "  swag               - Generate OpenAPI spec from code annotations"
 	@echo "  generate-spec      - Alias for swag"
+	@echo "  lint               - Run golangci-lint to check code quality"
+	@echo "  format             - Format code with gofmt and goimports"
+	@echo "  fmt-check          - Check if code is formatted (for CI)"
+	@echo "  check              - Run all code quality checks (formatting + linting)"
 	@echo "  help               - Show this help message"
 
