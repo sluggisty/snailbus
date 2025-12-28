@@ -184,12 +184,13 @@ func TestIntegration_UserRegistrationAndLogin(t *testing.T) {
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusOK, w.Code, "Login failed with status %d, body: %s", w.Code, w.Body.String())
 
 	var loginResp models.LoginResponse
 	err = json.Unmarshal(w.Body.Bytes(), &loginResp)
-	require.NoError(t, err)
-	assert.NotEmpty(t, loginResp.Token)
+	require.NoError(t, err, "Failed to unmarshal login response: %s", w.Body.String())
+	require.NotEmpty(t, loginResp.Token, "Login token should not be empty")
+	require.NotNil(t, loginResp.User, "Login response should include user")
 	assert.Equal(t, user.ID, loginResp.User.ID)
 
 	// Test using the API key from login

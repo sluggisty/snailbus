@@ -106,10 +106,13 @@ func setupTestDB(t *testing.T) (*sql.DB, func(), error) {
 	}
 
 	cleanup := func() {
-		// Clean test data
+		// Clean test data in order to respect foreign key constraints
+		// Order: api_keys -> hosts -> users -> organizations
 		tables := []string{"api_keys", "hosts", "users", "organizations"}
 		for _, table := range tables {
-			db.Exec(fmt.Sprintf("DELETE FROM %s", table))
+			if _, err := db.Exec(fmt.Sprintf("DELETE FROM %s", table)); err != nil {
+				t.Logf("Warning: failed to clean table %s: %v", table, err)
+			}
 		}
 		db.Close()
 	}

@@ -117,8 +117,10 @@ func RunMigrations(db *sql.DB) error {
 // CleanTestData removes all test data from the database.
 // This should be called after each test to ensure test isolation.
 // Note: This does not drop tables or schema, only deletes data.
+// Deletes in order to respect foreign key constraints (children before parents).
 func CleanTestData(db *sql.DB) error {
-	// Delete in order to respect foreign key constraints
+	// Delete in order to respect foreign key constraints (children first)
+	// Order: api_keys -> hosts -> users -> organizations
 	tables := []string{
 		"api_keys",
 		"hosts",
