@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
 )
@@ -517,4 +518,3 @@ func TestHandlers_DeleteHost(t *testing.T) {
 		})
 	}
 }
-

@@ -4,24 +4,24 @@ import "time"
 
 // User represents a user in the system
 type User struct {
-	ID           string    `json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	IsActive     bool      `json:"is_active"`
-	IsAdmin      bool      `json:"is_admin"`
-	OrgID        string    `json:"org_id"` // Required foreign key to organizations
-	Role         string    `json:"role"`   // Required enum: 'admin', 'editor', 'viewer'
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	IsActive  bool      `json:"is_active"`
+	IsAdmin   bool      `json:"is_admin"`
+	OrgID     string    `json:"org_id"` // Required foreign key to organizations
+	Role      string    `json:"role"`   // Required enum: 'admin', 'editor', 'viewer'
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // APIKey represents an API key
 type APIKey struct {
 	ID         string     `json:"id"`
-	UserID    string     `json:"user_id"`
-	KeyHash   string     `json:"-"` // Never return the hash
-	KeyPrefix string     `json:"-"` // Never return the prefix
-	Name      string     `json:"name"`
+	UserID     string     `json:"user_id"`
+	KeyHash    string     `json:"-"` // Never return the hash
+	KeyPrefix  string     `json:"-"` // Never return the prefix
+	Name       string     `json:"name"`
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
@@ -75,4 +75,3 @@ type CreateUserRequest struct {
 type UpdateUserRoleRequest struct {
 	Role string `json:"role" binding:"required,oneof=admin editor viewer"`
 }
-

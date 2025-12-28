@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
 )
@@ -158,16 +159,16 @@ func RetryOperation(t *testing.T, timeout time.Duration, interval time.Duration,
 func AssertPaginationResponse(t *testing.T, w *httptest.ResponseRecorder, expectedStatus int, expectedTotal int, expectedItems int) {
 	t.Helper()
 	AssertHTTPStatus(t, w, expectedStatus)
-	
+
 	body := ReadBodyAsJSON(t, w)
-	
+
 	// Check for pagination fields
 	total, hasTotal := body["total"]
 	assert.True(t, hasTotal, "Response should have 'total' field")
 	if hasTotal {
 		assert.Equal(t, float64(expectedTotal), total, "Expected total count %d, got %v", expectedTotal, total)
 	}
-	
+
 	// Check for items/data field
 	items, hasItems := body["items"]
 	if !hasItems {
@@ -185,9 +186,9 @@ func AssertPaginationResponse(t *testing.T, w *httptest.ResponseRecorder, expect
 func AssertErrorResponse(t *testing.T, w *httptest.ResponseRecorder, expectedStatus int, expectedError string) {
 	t.Helper()
 	AssertHTTPStatus(t, w, expectedStatus)
-	
+
 	body := ReadBodyAsJSON(t, w)
-	
+
 	errorField, hasError := body["error"]
 	assert.True(t, hasError, "Error response should have 'error' field")
 	if hasError && expectedError != "" {
@@ -211,7 +212,7 @@ func CleanupTestDataForOrg(db *sql.DB, orgID string) error {
 		return fmt.Errorf("failed to query users: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var userIDs []string
 	for rows.Next() {
 		var userID string
@@ -220,7 +221,7 @@ func CleanupTestDataForOrg(db *sql.DB, orgID string) error {
 		}
 		userIDs = append(userIDs, userID)
 	}
-	
+
 	// Delete API keys for these users
 	if len(userIDs) > 0 {
 		placeholders := ""
@@ -237,22 +238,22 @@ func CleanupTestDataForOrg(db *sql.DB, orgID string) error {
 			return fmt.Errorf("failed to delete API keys: %w", err)
 		}
 	}
-	
+
 	// Delete hosts for the organization
 	if _, err := db.Exec("DELETE FROM hosts WHERE org_id = $1", orgID); err != nil {
 		return fmt.Errorf("failed to delete hosts: %w", err)
 	}
-	
+
 	// Delete users
 	if _, err := db.Exec("DELETE FROM users WHERE org_id = $1", orgID); err != nil {
 		return fmt.Errorf("failed to delete users: %w", err)
 	}
-	
+
 	// Delete organization
 	if _, err := db.Exec("DELETE FROM organizations WHERE id = $1", orgID); err != nil {
 		return fmt.Errorf("failed to delete organization: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -260,12 +261,11 @@ func CleanupTestDataForOrg(db *sql.DB, orgID string) error {
 // This provides test isolation without needing to clean up data manually.
 func TransactionTest(t *testing.T, store storage.Storage, testFunc func(*testing.T, storage.Storage)) {
 	t.Helper()
-	
+
 	// Get the underlying database connection
 	// Note: This requires PostgresStorage to expose the DB connection
 	// For now, we'll use the regular cleanup approach
 	// This is a placeholder for future enhancement
-	
+
 	testFunc(t, store)
 }
-

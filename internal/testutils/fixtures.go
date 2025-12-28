@@ -135,4 +135,3 @@ func CreateCompleteTestSetup(store storage.Storage, orgName, username, email str
 
 	return org, user, apiKey, report, nil
 }
-

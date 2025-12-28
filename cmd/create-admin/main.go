@@ -6,10 +6,11 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/lib/pq"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
+
 	"snailbus/internal/auth"
 	"snailbus/internal/storage"
 )
@@ -166,4 +167,3 @@ func runMigrations(databaseURL string) error {
 
 	return nil
 }
-

@@ -13,50 +13,50 @@ type MockStorage struct {
 	mu sync.RWMutex
 
 	// Hosts storage
-	hosts map[string]*models.Report // key: hostID
-	hostsByOrg map[string][]string // orgID -> []hostID
+	hosts      map[string]*models.Report // key: hostID
+	hostsByOrg map[string][]string       // orgID -> []hostID
 
 	// Users storage
-	users map[string]*models.User // key: userID
-	usersByUsername map[string]string // username -> userID
-	usersByEmail map[string]string // email -> userID
-	usersByOrg map[string][]string // orgID -> []userID
-	passwords map[string]string // userID -> passwordHash
+	users           map[string]*models.User // key: userID
+	usersByUsername map[string]string       // username -> userID
+	usersByEmail    map[string]string       // email -> userID
+	usersByOrg      map[string][]string     // orgID -> []userID
+	passwords       map[string]string       // userID -> passwordHash
 
 	// API Keys storage
-	apiKeys map[string]*models.APIKey // key: apiKeyID
-	apiKeysByUser map[string][]string // userID -> []apiKeyID
-	apiKeysByPrefix map[string][]string // prefix -> []apiKeyID
+	apiKeys         map[string]*models.APIKey // key: apiKeyID
+	apiKeysByUser   map[string][]string       // userID -> []apiKeyID
+	apiKeysByPrefix map[string][]string       // prefix -> []apiKeyID
 
 	// Organizations storage
-	organizations map[string]*models.Organization // key: orgID
-	organizationsByName map[string]string // name -> orgID
+	organizations       map[string]*models.Organization // key: orgID
+	organizationsByName map[string]string               // name -> orgID
 
 	// Error injection
-	shouldErrorOnSaveHost bool
-	shouldErrorOnGetHost bool
-	shouldErrorOnDeleteHost bool
-	shouldErrorOnListHosts bool
-	shouldErrorOnCreateUser bool
-	shouldErrorOnGetUser bool
+	shouldErrorOnSaveHost     bool
+	shouldErrorOnGetHost      bool
+	shouldErrorOnDeleteHost   bool
+	shouldErrorOnListHosts    bool
+	shouldErrorOnCreateUser   bool
+	shouldErrorOnGetUser      bool
 	shouldErrorOnCreateAPIKey bool
-	shouldErrorOnCreateOrg bool
+	shouldErrorOnCreateOrg    bool
 }
 
 // NewMockStorage creates a new mock storage instance
 func NewMockStorage() *MockStorage {
 	return &MockStorage{
-		hosts: make(map[string]*models.Report),
-		hostsByOrg: make(map[string][]string),
-		users: make(map[string]*models.User),
-		usersByUsername: make(map[string]string),
-		usersByEmail: make(map[string]string),
-		usersByOrg: make(map[string][]string),
-		passwords: make(map[string]string),
-		apiKeys: make(map[string]*models.APIKey),
-		apiKeysByUser: make(map[string][]string),
-		apiKeysByPrefix: make(map[string][]string),
-		organizations: make(map[string]*models.Organization),
+		hosts:               make(map[string]*models.Report),
+		hostsByOrg:          make(map[string][]string),
+		users:               make(map[string]*models.User),
+		usersByUsername:     make(map[string]string),
+		usersByEmail:        make(map[string]string),
+		usersByOrg:          make(map[string][]string),
+		passwords:           make(map[string]string),
+		apiKeys:             make(map[string]*models.APIKey),
+		apiKeysByUser:       make(map[string][]string),
+		apiKeysByPrefix:     make(map[string][]string),
+		organizations:       make(map[string]*models.Organization),
 		organizationsByName: make(map[string]string),
 	}
 }
@@ -365,13 +365,13 @@ func (m *MockStorage) CreateAPIKey(userID, keyHash, keyPrefix, name string, expi
 	// Replace spaces with dashes for URL safety
 	keyID = strings.ReplaceAll(keyID, " ", "-")
 	apiKey := &models.APIKey{
-		ID:         keyID,
-		UserID:     userID,
-		KeyHash:    keyHash,
-		KeyPrefix:  keyPrefix,
-		Name:       name,
-		ExpiresAt:  expiresAt,
-		CreatedAt:  time.Now(),
+		ID:        keyID,
+		UserID:    userID,
+		KeyHash:   keyHash,
+		KeyPrefix: keyPrefix,
+		Name:      name,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
 	}
 
 	m.apiKeys[keyID] = apiKey
@@ -618,4 +618,3 @@ func (m *MockStorage) DeleteUser(userID string) error {
 
 	return nil
 }
-

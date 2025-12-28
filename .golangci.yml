@@ -1,0 +1,215 @@
+# golangci-lint configuration for Snailbus
+# See https://golangci-lint.run/usage/configuration/ for full documentation
+
+run:
+  # Timeout for analysis
+  timeout: 5m
+
+# Output configuration
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+# Linters configuration
+linters:
+  # Enable all linters
+  enable-all: false
+  
+  # Disable specific linters
+  disable:
+    - errcheck      # We'll use errcheck separately if needed
+    - funlen        # Function length - can be too strict
+    - gocognit      # Cognitive complexity - can be too strict
+    - gocyclo       # Cyclomatic complexity - can be too strict
+    - lll           # Line length - we use gofmt/goimports
+    - typecheck     # Disabled - gives false positives, redundant with go build
+    - staticcheck   # Disabled - typecheck gives false positives, redundant with go build
+  
+  # Enable specific linters
+  enable:
+    # Code style
+    - gofmt
+    - goimports
+    - gofumpt       # Stricter gofmt
+    
+    # Error handling
+    - errorlint     # Check for error handling issues
+    - errname       # Check error naming
+    - wrapcheck     # Check error wrapping
+    
+    # Code quality
+    - revive        # Fast, configurable linter (replacement for golint)
+    - govet         # Go vet
+    # - staticcheck   # Disabled - typecheck gives false positives, redundant with go build
+    - unused        # Check for unused code
+    - ineffassign   # Detect ineffectual assignments
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Report unused function parameters
+    
+    # Best practices
+    - exportloopref # Prevent exporting loop variables
+    - gocritic      # The most opinionated Go source code linter
+    - goconst       # Find repeated strings that could be replaced by a constant
+    - mnd           # Magic number detector (replaces gomnd)
+    - prealloc      # Find slice declarations that could be pre-allocated
+    - nakedret      # Make naked returns in functions greater than a specified length an error
+    - noctx         # Check for context.Context usage
+    - rowserrcheck  # Checks whether Err of rows is checked successfully
+    - sqlclosecheck # Check that sql.Rows and sql.Stmt are closed
+    
+    # Performance
+    - bodyclose     # Checks whether HTTP response body is closed successfully
+    - contextcheck  # Check for context.Context usage
+    - wastedassign  # Detect wasted assignments
+
+linters-settings:
+  # gofmt settings
+  gofmt:
+    simplify: true
+  
+  # goimports settings
+  goimports:
+    local-prefixes: snailbus
+  
+  # revive settings
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+      - name: var-naming
+        severity: warning
+      - name: package-comments
+        severity: warning
+      - name: comment-spacings
+        severity: warning
+      - name: range
+        severity: warning
+      - name: increment-decrement
+        severity: warning
+      - name: var-declaration
+        severity: warning
+      - name: range-val-in-closure
+        severity: warning
+      - name: unhandled-error
+        severity: warning
+  
+  # govet settings
+  govet:
+    enable-all: true
+  
+  # staticcheck settings (disabled - typecheck gives false positives)
+  # staticcheck:
+  #   checks: ["all", "-SA1019"]
+  
+  # gocritic settings
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+  
+  # mnd settings (magic numbers) - replaces gomnd
+  mnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+    ignored-numbers:
+      - "0"
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+      - "5"
+      - "10"
+      - "100"
+      - "1000"
+      - "24"
+      - "60"
+      - "1024"
+      - "2048"
+      - "4096"
+  
+  # errcheck settings
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  
+  # unparam settings
+  unparam:
+    check-exported: false
+  
+  # nakedret settings
+  nakedret:
+    max-func-lines: 30
+
+issues:
+  # Maximum issues count per one linter
+  max-issues-per-linter: 50
+  
+  # Maximum count of issues with the same text
+  max-same-issues: 3
+  
+  # Show only new issues created after git revision
+  new: false
+  
+  # Exclude directories: issues from them won't be reported
+  exclude-dirs:
+    - vendor
+    - cmd/generate-openapi
+    - cmd/validate-openapi
+    - docs
+  
+  # Exclude files: they will be analyzed, but issues from them won't be reported
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*_gen\\.go$"
+  
+  # Exclude some linters from exclude rules
+  exclude-rules:
+    # Exclude typecheck errors (false positives - code compiles successfully)
+    - linters:
+        - typecheck
+      text: "undefined: migrate"
+    - linters:
+        - typecheck
+      text: "undefined: yaml"
+    
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - funlen
+        - gocognit
+        - gocyclo
+        - mnd
+        - typecheck
+    
+    # Exclude known linter issues
+    - text: "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
+      linters:
+        - errcheck
+    
+    # Exclude issues about comment spacing
+    - text: "comment on exported"
+      linters:
+        - revive
+    
+    # Exclude magic number warnings for common values
+    - text: "mnd: Magic number"
+      linters:
+        - mnd
+

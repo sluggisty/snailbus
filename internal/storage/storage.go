@@ -21,7 +21,7 @@ type Storage interface {
 	// GetHost returns the full report data for a specific host by host_id (UUID)
 	// Verifies that the host belongs to the specified organization
 	GetHost(hostID, orgID string) (*models.Report, error)
-	
+
 	// DeleteHost removes a host by host_id (UUID)
 	// Verifies that the host belongs to the specified organization before deletion
 	DeleteHost(hostID, orgID string) error
@@ -58,5 +58,3 @@ type Storage interface {
 	UpdateUserRole(userID, role string) error
 	DeleteUser(userID string) error
 }
-
-

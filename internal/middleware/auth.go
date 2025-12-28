@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"snailbus/internal/auth"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
@@ -29,7 +30,7 @@ func AuthMiddleware(store storage.Storage) gin.HandlerFunc {
 
 		if apiKey == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "missing API key",
+				"error":   "missing API key",
 				"message": "Please provide an API key in the X-API-Key header",
 			})
 			c.Abort()
@@ -137,20 +138,21 @@ func AdminMiddleware(store storage.Storage) gin.HandlerFunc {
 
 // RequireRole creates middleware that checks if the authenticated user has one of the required roles
 // This middleware must be used after AuthMiddleware, which sets the "user" in the context
-// 
+//
 // Example usage:
-//   // Require admin role
-//   protected.Use(middleware.RequireRole("admin"))
-//   
-//   // Require either admin or editor role
-//   protected.Use(middleware.RequireRole("admin", "editor"))
+//
+//	// Require admin role
+//	protected.Use(middleware.RequireRole("admin"))
+//
+//	// Require either admin or editor role
+//	protected.Use(middleware.RequireRole("admin", "editor"))
 func RequireRole(requiredRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get user from context (set by AuthMiddleware)
 		userValue, exists := c.Get("user")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
+				"error":   "unauthorized",
 				"message": "User not found in context. Ensure AuthMiddleware is applied before RequireRole.",
 			})
 			c.Abort()
@@ -160,7 +162,7 @@ func RequireRole(requiredRoles ...string) gin.HandlerFunc {
 		user, ok := userValue.(*models.User)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "internal server error",
+				"error":   "internal server error",
 				"message": "Invalid user type in context",
 			})
 			c.Abort()
@@ -178,10 +180,10 @@ func RequireRole(requiredRoles ...string) gin.HandlerFunc {
 
 		if !hasRequiredRole {
 			c.JSON(http.StatusForbidden, gin.H{
-				"error": "insufficient role",
-				"message": "Your role does not have permission to access this resource",
+				"error":          "insufficient role",
+				"message":        "Your role does not have permission to access this resource",
 				"required_roles": requiredRoles,
-				"your_role": user.Role,
+				"your_role":      user.Role,
 			})
 			c.Abort()
 			return
@@ -200,12 +202,13 @@ func RequireRole(requiredRoles ...string) gin.HandlerFunc {
 //   - role: via GetRole(c) or c.Get("role")
 //
 // Example usage:
-//   protected := v1.Group("")
-//   protected.Use(middleware.AuthMiddleware(store))
-//   protected.Use(middleware.OrgContextMiddleware())
-//   {
-//       protected.GET("/hosts", h.ListHosts) // Can use GetOrgID(c) in handler
-//   }
+//
+//	protected := v1.Group("")
+//	protected.Use(middleware.AuthMiddleware(store))
+//	protected.Use(middleware.OrgContextMiddleware())
+//	{
+//	    protected.GET("/hosts", h.ListHosts) // Can use GetOrgID(c) in handler
+//	}
 func OrgContextMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get user from context (set by AuthMiddleware)
@@ -214,7 +217,7 @@ func OrgContextMiddleware() gin.HandlerFunc {
 			// If user is not in context, this middleware should not be used
 			// or AuthMiddleware was not applied first
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
+				"error":   "unauthorized",
 				"message": "User not found in context. Ensure AuthMiddleware is applied before OrgContextMiddleware.",
 			})
 			c.Abort()
@@ -224,7 +227,7 @@ func OrgContextMiddleware() gin.HandlerFunc {
 		user, ok := userValue.(*models.User)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "internal server error",
+				"error":   "internal server error",
 				"message": "Invalid user type in context",
 			})
 			c.Abort()
@@ -277,4 +280,3 @@ func GetUserID(c *gin.Context) string {
 	}
 	return ""
 }
-
