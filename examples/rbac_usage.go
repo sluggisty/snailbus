@@ -5,6 +5,7 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"snailbus/internal/handlers"
 	"snailbus/internal/middleware"
 	"snailbus/internal/storage"
@@ -104,4 +105,3 @@ func exampleDirectRBACUsage(store storage.Storage, h *handlers.Handlers) {
 		)
 	}
 }
-

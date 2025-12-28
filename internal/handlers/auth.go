@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"snailbus/internal/auth"
 	"snailbus/internal/middleware"
 	"snailbus/internal/models"
@@ -56,7 +57,7 @@ func (h *Handlers) Register(c *gin.Context) {
 		}
 		if userCount > 0 {
 			c.JSON(http.StatusConflict, gin.H{
-				"error": "organization already has a user",
+				"error":   "organization already has a user",
 				"message": "Registration is only allowed once per organization. This organization already has a registered user.",
 			})
 			return
@@ -64,7 +65,7 @@ func (h *Handlers) Register(c *gin.Context) {
 		// Organization exists but has no users - reject registration
 		// Users cannot join existing organizations, they must create new ones
 		c.JSON(http.StatusConflict, gin.H{
-			"error": "organization name already exists",
+			"error":   "organization name already exists",
 			"message": "This organization name is already taken. Please choose a different name.",
 		})
 		return
@@ -487,7 +488,7 @@ func (h *Handlers) UpdateUserRole(c *gin.Context) {
 	// Prevent users from updating their own role
 	if currentUser.ID == userID {
 		c.JSON(http.StatusForbidden, gin.H{
-			"error": "cannot update own role",
+			"error":   "cannot update own role",
 			"message": "You cannot update your own role. Ask another admin to update it for you.",
 		})
 		return
@@ -507,7 +508,7 @@ func (h *Handlers) UpdateUserRole(c *gin.Context) {
 
 	if targetUser.OrgID != currentUser.OrgID {
 		c.JSON(http.StatusForbidden, gin.H{
-			"error": "user not in your organization",
+			"error":   "user not in your organization",
 			"message": "You can only update users in your own organization.",
 		})
 		return
@@ -565,7 +566,7 @@ func (h *Handlers) DeleteUser(c *gin.Context) {
 	// Prevent users from deleting themselves
 	if currentUser.ID == userID {
 		c.JSON(http.StatusForbidden, gin.H{
-			"error": "cannot delete yourself",
+			"error":   "cannot delete yourself",
 			"message": "You cannot delete your own account. Ask another admin to delete it for you.",
 		})
 		return
@@ -585,7 +586,7 @@ func (h *Handlers) DeleteUser(c *gin.Context) {
 
 	if targetUser.OrgID != currentUser.OrgID {
 		c.JSON(http.StatusForbidden, gin.H{
-			"error": "user not in your organization",
+			"error":   "user not in your organization",
 			"message": "You can only delete users in your own organization.",
 		})
 		return
@@ -604,5 +605,3 @@ func (h *Handlers) DeleteUser(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
-
-

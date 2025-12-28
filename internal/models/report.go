@@ -8,8 +8,8 @@ import (
 // HealthResponse represents the health check response
 // @Description Health check response with service and database status
 type HealthResponse struct {
-	Status   string `json:"status" example:"ok"`       // Overall service status (ok or error)
-	Service  string `json:"service" example:"snailbus"` // Service name
+	Status   string `json:"status" example:"ok"`          // Overall service status (ok or error)
+	Service  string `json:"service" example:"snailbus"`   // Service name
 	Database string `json:"database" example:"connected"` // Database connection status (connected or disconnected)
 }
 
@@ -53,15 +53,15 @@ type IngestResponse struct {
 // HostSummary represents summary info about a host
 // @Description Summary information about a host including host_id, hostname, OS distribution, version components, and last seen timestamp
 type HostSummary struct {
-	HostID           string    `json:"host_id"`            // Persistent UUID
-	Hostname         string    `json:"hostname"`           // Current hostname (may change)
-	OSName           string    `json:"os_name"`            // Linux distribution name (e.g., "Fedora", "Debian")
-	OSVersion        string    `json:"os_version"`         // OS version (full version string, e.g., "42", "12.2", "22.04")
-	OSVersionMajor   string    `json:"os_version_major,omitempty"`   // Major version number
-	OSVersionMinor   string    `json:"os_version_minor,omitempty"`   // Minor version number
-	OSVersionPatch   string    `json:"os_version_patch,omitempty"`   // Patch version number
-	OrgID            string    `json:"org_id"`             // Required foreign key to organizations
-	UploadedByUserID string    `json:"uploaded_by_user_id"` // Required foreign key to users
+	HostID           string    `json:"host_id"`                    // Persistent UUID
+	Hostname         string    `json:"hostname"`                   // Current hostname (may change)
+	OSName           string    `json:"os_name"`                    // Linux distribution name (e.g., "Fedora", "Debian")
+	OSVersion        string    `json:"os_version"`                 // OS version (full version string, e.g., "42", "12.2", "22.04")
+	OSVersionMajor   string    `json:"os_version_major,omitempty"` // Major version number
+	OSVersionMinor   string    `json:"os_version_minor,omitempty"` // Minor version number
+	OSVersionPatch   string    `json:"os_version_patch,omitempty"` // Patch version number
+	OrgID            string    `json:"org_id"`                     // Required foreign key to organizations
+	UploadedByUserID string    `json:"uploaded_by_user_id"`        // Required foreign key to users
 	LastSeen         time.Time `json:"last_seen"`
 }
 
@@ -73,5 +73,3 @@ type Organization struct {
 	CreatedAt time.Time `json:"created_at"` // Creation timestamp
 	UpdatedAt time.Time `json:"updated_at"` // Last update timestamp
 }
-
-

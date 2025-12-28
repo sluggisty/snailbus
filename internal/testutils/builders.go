@@ -291,4 +291,3 @@ func (b *IngestRequestBuilder) WithError(err string) *IngestRequestBuilder {
 func (b *IngestRequestBuilder) Build() *models.IngestRequest {
 	return b.request
 }
-

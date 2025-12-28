@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"snailbus/internal/handlers"
 	"snailbus/internal/middleware"
 	"snailbus/internal/storage"
@@ -52,7 +53,7 @@ func exampleOrgContextUsage(store storage.Storage, h *handlers.Handlers) {
 
 				// Create resource with orgID
 				c.JSON(http.StatusCreated, gin.H{
-					"org_id": orgID,
+					"org_id":  orgID,
 					"message": "Resource created",
 				})
 			})
@@ -109,4 +110,3 @@ func exampleHandler(c *gin.Context) {
 	_ = userID
 	_ = orgID2
 }
-

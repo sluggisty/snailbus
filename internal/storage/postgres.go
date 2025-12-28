@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+
 	"snailbus/internal/models"
 )
 
@@ -46,7 +47,7 @@ func (ps *PostgresStorage) SaveHost(report *models.Report, orgID, uploadedByUser
 	var existingOrgID string
 	checkQuery := `SELECT org_id FROM hosts WHERE host_id = $1`
 	err := ps.db.QueryRow(checkQuery, report.Meta.HostID).Scan(&existingOrgID)
-	
+
 	if err == nil {
 		// Host exists - verify org_id matches
 		if existingOrgID != orgID {
@@ -687,4 +688,3 @@ func (ps *PostgresStorage) DeleteUser(userID string) error {
 
 	return nil
 }
-

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
+
 	"snailbus/internal/middleware"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
@@ -272,13 +273,13 @@ func (h *Handlers) GetOpenAPISpecYAML(c *gin.Context) {
 	if specPath == "" {
 		specPath = h.findSpecFile("openapi.yaml")
 	}
-	
+
 	if specPath == "" {
 		log.Printf("Failed to find OpenAPI spec file")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 		return
 	}
-	
+
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
 		log.Printf("Failed to read OpenAPI spec from %s: %v", specPath, err)
@@ -305,13 +306,13 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 		if specPath == "" {
 			specPath = h.findSpecFile("openapi.yaml")
 		}
-		
+
 		if specPath == "" {
 			log.Printf("Failed to find OpenAPI spec file")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 			return
 		}
-		
+
 		// Read and parse YAML, then convert to JSON
 		specData, err := os.ReadFile(specPath)
 		if err != nil {
@@ -319,7 +320,7 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 			return
 		}
-		
+
 		var spec map[string]interface{}
 		if err := yaml.Unmarshal(specData, &spec); err != nil {
 			log.Printf("Failed to parse OpenAPI spec: %v", err)
@@ -329,7 +330,7 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 		c.JSON(http.StatusOK, spec)
 		return
 	}
-	
+
 	// Read JSON file
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
@@ -355,7 +356,7 @@ func (h *Handlers) findSpecFile(relativePath string) string {
 	if _, err := os.Stat(relativePath); err == nil {
 		return relativePath
 	}
-	
+
 	// Try relative to executable location
 	execPath, err := os.Executable()
 	if err == nil {
@@ -365,7 +366,7 @@ func (h *Handlers) findSpecFile(relativePath string) string {
 			return absPath
 		}
 	}
-	
+
 	// Try relative to current working directory with absolute path
 	wd, err := os.Getwd()
 	if err == nil {
@@ -374,8 +375,6 @@ func (h *Handlers) findSpecFile(relativePath string) string {
 			return absPath
 		}
 	}
-	
+
 	return ""
 }
-
-

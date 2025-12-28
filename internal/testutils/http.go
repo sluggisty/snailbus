@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
 	"snailbus/internal/handlers"
 	"snailbus/internal/middleware"
 	"snailbus/internal/models"
@@ -29,8 +30,8 @@ type TestClient struct {
 func NewTestClient(router *gin.Engine, apiKey string) *TestClient {
 	return &TestClient{
 		router:  router,
-		apiKey:   apiKey,
-		baseURL:  "",
+		apiKey:  apiKey,
+		baseURL: "",
 	}
 }
 
@@ -269,4 +270,3 @@ func ReadBodyAsJSON(t *testing.T, w *httptest.ResponseRecorder) map[string]inter
 	}
 	return result
 }
-

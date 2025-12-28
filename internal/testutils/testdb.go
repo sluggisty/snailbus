@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "github.com/lib/pq"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
 )
 
 // SetupTestDB creates a test database connection and runs migrations.

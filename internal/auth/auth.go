@@ -118,4 +118,3 @@ func IsExpired(expiresAt *time.Time) bool {
 	}
 	return time.Now().After(*expiresAt)
 }
-

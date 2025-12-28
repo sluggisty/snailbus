@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/lib/pq"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
 
 	"snailbus/internal/auth"
 	"snailbus/internal/models"
@@ -20,14 +20,14 @@ import (
 
 // Test UUIDs for predictable testing
 const (
-	testHostID1    = "00000000-0000-0000-0000-000000000001"
-	testHostID2    = "00000000-0000-0000-0000-000000000002"
-	testUserID1    = "00000000-0000-0000-0000-000000000010"
-	testUserID2    = "00000000-0000-0000-0000-000000000011"
-	testOrgID1     = "00000000-0000-0000-0000-000000000100"
-	testOrgID2     = "00000000-0000-0000-0000-000000000200"
-	testAPIKeyID1  = "00000000-0000-0000-0000-000000001000"
-	testAPIKeyID2  = "00000000-0000-0000-0000-000000002000"
+	testHostID1   = "00000000-0000-0000-0000-000000000001"
+	testHostID2   = "00000000-0000-0000-0000-000000000002"
+	testUserID1   = "00000000-0000-0000-0000-000000000010"
+	testUserID2   = "00000000-0000-0000-0000-000000000011"
+	testOrgID1    = "00000000-0000-0000-0000-000000000100"
+	testOrgID2    = "00000000-0000-0000-0000-000000000200"
+	testAPIKeyID1 = "00000000-0000-0000-0000-000000001000"
+	testAPIKeyID2 = "00000000-0000-0000-0000-000000002000"
 )
 
 func getTestDatabaseURL() string {
@@ -217,7 +217,7 @@ func TestPostgresStorage_SaveHost(t *testing.T) {
 		name    string
 		report  *models.Report
 		orgID   string
-		userID   string
+		userID  string
 		wantErr bool
 	}{
 		{
@@ -619,10 +619,10 @@ func TestPostgresStorage_GetUserByUsername(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
+		name     string
 		username string
-		wantErr bool
-		wantID  string
+		wantErr  bool
+		wantID   string
 	}{
 		{
 			name:     "get existing user",
@@ -1250,4 +1250,3 @@ func TestPostgresStorage_OrganizationIsolation(t *testing.T) {
 		t.Errorf("ListUsersByOrganization() for org2 returned %d users, want 1", len(users2))
 	}
 }
-

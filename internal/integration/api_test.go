@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"snailbus/internal/handlers"
 	"snailbus/internal/middleware"
 	"snailbus/internal/models"
@@ -100,17 +101,17 @@ func setupTestRouter(store storage.Storage) *gin.Engine {
 
 // testClient is a helper for making authenticated HTTP requests
 type testClient struct {
-	router   *gin.Engine
-	apiKey   string
-	baseURL  string
+	router  *gin.Engine
+	apiKey  string
+	baseURL string
 }
 
 // newTestClient creates a new test client with an API key
 func newTestClient(router *gin.Engine, apiKey string) *testClient {
 	return &testClient{
 		router:  router,
-		apiKey:   apiKey,
-		baseURL:  "",
+		apiKey:  apiKey,
+		baseURL: "",
 	}
 }
 
@@ -638,4 +639,3 @@ func setupTestStorage(t *testing.T) (storage.Storage, func()) {
 		cleanup()
 	}
 }
-

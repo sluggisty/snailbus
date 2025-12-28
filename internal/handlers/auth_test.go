@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
 	"snailbus/internal/auth"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
@@ -862,4 +863,3 @@ func TestHandlers_DeleteUser(t *testing.T) {
 		})
 	}
 }
-
