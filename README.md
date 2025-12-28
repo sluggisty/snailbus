@@ -127,21 +127,6 @@ The spec is automatically generated from:
 - **Model annotations**: Data models have `@Description` annotations
 - **General API info**: Defined in `main.go` with `@title`, `@version`, `@description`, etc.
 
-### Manual Spec Tools (Legacy)
-
-The project also includes tools for working with manually-edited OpenAPI specs:
-
-```bash
-# Build the tools
-make install-tools
-
-# Generate JSON from YAML (for manual openapi.yaml)
-make generate-json
-
-# Validate the OpenAPI spec
-make validate
-```
-
 ### Viewing the API Documentation
 
 - **Swagger UI**: Visit `http://localhost:8080/swagger/index.html` when the server is running
@@ -292,12 +277,14 @@ make run
 
 ### OpenAPI Tools
 
-```bash
-# Build OpenAPI tools
-make install-tools
+The OpenAPI specification is generated from code annotations using `swag`:
 
-# Generate JSON from YAML
-make generate-json
+```bash
+# Generate OpenAPI spec from code annotations
+make swag
+
+# Or use the alias
+make generate-spec
 
 # Validate OpenAPI spec
 make validate
@@ -325,14 +312,11 @@ snailbus/
 ├── Dockerfile          # Docker build configuration
 ├── docker-compose.yml  # Docker Compose configuration
 ├── Makefile            # Build and development commands
-├── openapi.yaml        # OpenAPI 3.0 specification (YAML)
-├── openapi.json        # OpenAPI 3.0 specification (JSON, generated)
 ├── migrations/         # Database migration files
 │   ├── 000001_initial_schema.up.sql
 │   └── 000001_initial_schema.down.sql
 ├── cmd/                # Command-line tools
-│   ├── generate-openapi/  # Tool to generate JSON from YAML
-│   └── validate-openapi/  # Tool to validate OpenAPI spec
+│   └── create-admin/   # Admin user creation tool
 ├── internal/            # Internal packages
 │   ├── handlers/       # HTTP request handlers
 │   ├── models/         # Data models

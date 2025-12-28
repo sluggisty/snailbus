@@ -1,4 +1,4 @@
-.PHONY: build run test test-unit test-integration test-coverage test-coverage-all test-coverage-percent test-docker test-integration-docker test-docker-up test-docker-down test-docker-clean clean generate-openapi validate-openapi swag help
+.PHONY: build run test test-unit test-integration test-coverage test-coverage-all test-coverage-percent test-docker test-integration-docker test-docker-up test-docker-down test-docker-clean clean swag generate-spec help
 
 # Build the main application
 build:
@@ -113,26 +113,6 @@ test-coverage-percent:
 	@go tool cover -func=coverage.out 2>/dev/null | tail -1 | awk '{print $$3}' || echo "0.0%"
 
 
-# Build the OpenAPI generator tool
-generate-openapi:
-	go build -o cmd/generate-openapi/generate-openapi ./cmd/generate-openapi
-
-# Build the OpenAPI validator tool
-validate-openapi:
-	go build -o cmd/validate-openapi/validate-openapi ./cmd/validate-openapi
-
-# Generate JSON from YAML OpenAPI spec
-generate-json: generate-openapi
-	./cmd/generate-openapi/generate-openapi openapi.yaml openapi.json
-
-# Validate OpenAPI spec
-validate: validate-openapi
-	./cmd/validate-openapi/validate-openapi openapi.yaml
-
-# Install tools
-install-tools: generate-openapi validate-openapi
-	@echo "✓ OpenAPI tools built successfully"
-
 # Generate OpenAPI spec from code annotations using swag
 swag:
 	@GOPATH=$$(go env GOPATH); \
@@ -152,10 +132,7 @@ generate-spec: swag
 # Clean coverage reports
 clean:
 	rm -f snailbus
-	rm -f openapi.json
 	rm -rf docs
-	rm -f cmd/generate-openapi/generate-openapi
-	rm -f cmd/validate-openapi/validate-openapi
 	rm -f coverage.out coverage.html
 
 # Help target
@@ -177,10 +154,5 @@ help:
 	@echo "  clean              - Remove build artifacts and coverage reports"
 	@echo "  swag               - Generate OpenAPI spec from code annotations"
 	@echo "  generate-spec      - Alias for swag"
-	@echo "  generate-openapi   - Build the OpenAPI generator tool"
-	@echo "  validate-openapi   - Build the OpenAPI validator tool"
-	@echo "  generate-json      - Generate openapi.json from openapi.yaml"
-	@echo "  validate           - Validate the OpenAPI specification"
-	@echo "  install-tools      - Build all OpenAPI tools"
 	@echo "  help               - Show this help message"
 
