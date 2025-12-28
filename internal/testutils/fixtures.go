@@ -136,14 +136,3 @@ func CreateCompleteTestSetup(store storage.Storage, orgName, username, email str
 	return org, user, apiKey, report, nil
 }
 
-// CreateTestStorage creates a PostgresStorage instance using the test database URL.
-// This is a convenience function for creating storage instances in tests.
-// The database should already have migrations run (via SetupTestDB).
-func CreateTestStorage() (storage.Storage, error) {
-	dbURL := GetTestDatabaseURL()
-	store, err := storage.NewPostgresStorage(dbURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create test storage: %w", err)
-	}
-	return store, nil
-}
