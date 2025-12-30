@@ -29,8 +29,12 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_TIME=unknown
 
+# Build arguments for target platform (provided by Docker Buildx)
+ARG TARGETOS
+ARG TARGETARCH
+
 # Build the application with version information
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags "-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}" \
     -a -installsuffix cgo -o snailbus .
 

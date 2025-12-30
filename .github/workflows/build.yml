@@ -18,18 +18,8 @@ env:
 
 jobs:
   build-binaries:
-    name: Build Binaries
+    name: Build Binary
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        exclude:
-          # Exclude darwin/arm64 and windows/arm64 for now (can be added later)
-          - goos: darwin
-            goarch: arm64
-          - goos: windows
-            goarch: arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,22 +65,19 @@ jobs:
 
       - name: Build binary
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
+          GOOS: linux
+          GOARCH: amd64
           CGO_ENABLED: 0
         run: |
-          OUTPUT="snailbus-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            OUTPUT="${OUTPUT}.exe"
-          fi
+          OUTPUT="snailbus-linux-amd64"
           go build -ldflags "${{ env.BUILD_FLAGS }}" -o "$OUTPUT" .
           echo "binary=$OUTPUT" >> $GITHUB_OUTPUT
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: snailbus-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: snailbus-${{ matrix.goos }}-${{ matrix.goarch }}*
+          name: snailbus-linux-amd64
+          path: snailbus-linux-amd64
           retention-days: 30
 
   build-docker:
@@ -127,6 +114,16 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building Docker image version: $VERSION"
 
+      - name: Set build variables
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "COMMIT=$COMMIT" >> $GITHUB_ENV
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -153,9 +150,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=${{ steps.version.outputs.version }}
-            COMMIT=$(git rev-parse --short HEAD)
-            BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            VERSION=${{ env.VERSION }}
+            COMMIT=${{ env.COMMIT }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
 
       - name: Build Docker image (PR - no push)
         if: github.event_name == 'pull_request'
@@ -169,6 +166,6 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             VERSION=pr-${{ github.event.number }}
-            COMMIT=$(git rev-parse --short HEAD)
-            BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            COMMIT=${{ env.COMMIT }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
 

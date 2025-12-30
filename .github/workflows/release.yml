@@ -60,25 +60,13 @@ jobs:
           # Set build flags
           echo "BUILD_FLAGS=-X main.Version=$TAG_VERSION -X main.Commit=$COMMIT -X main.BuildTime=$BUILD_TIME" >> $GITHUB_ENV
 
-      - name: Build binaries for all platforms
-        strategy:
-          matrix:
-            goos: [linux, darwin, windows]
-            goarch: [amd64, arm64]
-            exclude:
-              - goos: darwin
-                goarch: arm64
-              - goos: windows
-                goarch: arm64
+      - name: Build binary for Linux amd64
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
+          GOOS: linux
+          GOARCH: amd64
           CGO_ENABLED: 0
         run: |
-          OUTPUT="snailbus-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            OUTPUT="${OUTPUT}.exe"
-          fi
+          OUTPUT="snailbus-linux-amd64"
           go build -ldflags "${{ env.BUILD_FLAGS }}" -o "$OUTPUT" .
           echo "binary=$OUTPUT" >> $GITHUB_OUTPUT
 
@@ -96,10 +84,8 @@ jobs:
             
             ### Binaries
             
-            Pre-built binaries are available for the following platforms:
-            - Linux (amd64, arm64)
-            - macOS (amd64)
-            - Windows (amd64)
+            Pre-built binary is available for:
+            - Linux (amd64)
             
             ### Docker Image
             
@@ -158,7 +144,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=${{ steps.version.outputs.tag_version }}
-            COMMIT=$(git rev-parse --short HEAD)
-            BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            VERSION=${{ env.TAG_VERSION }}
+            COMMIT=${{ env.COMMIT }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
 
