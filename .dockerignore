@@ -1,10 +1,70 @@
-README.md
-*.png
-*.jpg
-*.jpeg
+# Git files
 .git
 .gitignore
-.vscode
-.idea
-# Don't ignore docs directory - it needs to be generated during build
-# docs/
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs/
+*.pdf
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files
+*_test.go
+test/
+tests/
+*.test
+coverage.out
+coverage.html
+
+# Build artifacts
+snailbus
+snailbus-*
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Docker files (don't need in image)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development files
+Makefile
+scripts/
+*.sh
+
+# Test database
+*.db
+*.sqlite

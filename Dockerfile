@@ -3,7 +3,7 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Install git (needed for some Go dependencies)
+# Install git and swag dependencies first (these change rarely)
 RUN apk add --no-cache git
 
 # Install swag for generating OpenAPI docs
@@ -12,20 +12,31 @@ ENV GOPATH=/go
 ENV PATH=$PATH:$GOPATH/bin
 RUN go install github.com/swaggo/swag/cmd/swag@latest
 
-# Copy go mod files
+# Copy go mod files first for better layer caching
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download dependencies (cached unless go.mod/go.sum changes)
 RUN go mod download
 
-# Copy source code and migrations
+# Copy source code and migrations (changes frequently)
 COPY . .
 
 # Generate OpenAPI specification from code annotations
 RUN swag init -g main.go -o docs --parseDependency --parseInternal
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o snailbus .
+# Build arguments for version information
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_TIME=unknown
+
+# Build arguments for target platform (provided by Docker Buildx)
+ARG TARGETOS
+ARG TARGETARCH
+
+# Build the application with version information
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+    -ldflags "-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}" \
+    -a -installsuffix cgo -o snailbus .
 
 # Final stage
 FROM alpine:latest
