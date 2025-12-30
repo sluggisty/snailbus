@@ -1,8 +1,16 @@
-.PHONY: build run test test-unit test-integration test-coverage test-coverage-all test-coverage-percent test-docker test-integration-docker test-docker-up test-docker-down test-docker-clean clean swag generate-spec lint format fmt-check check install-linter help
+.PHONY: build build-version run test test-unit test-integration test-coverage test-coverage-all test-coverage-percent test-docker test-integration-docker test-docker-up test-docker-down test-docker-clean clean swag generate-spec lint format fmt-check check install-linter help
 
 # Build the main application
 build:
 	go build -o snailbus .
+
+# Build with version information
+build-version:
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+	BUILD_TIME=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
+	echo "Building version: $$VERSION (commit: $$COMMIT, build time: $$BUILD_TIME)"; \
+	go build -ldflags "-X main.Version=$$VERSION -X main.Commit=$$COMMIT -X main.BuildTime=$$BUILD_TIME" -o snailbus .
 
 # Run the application
 run: build

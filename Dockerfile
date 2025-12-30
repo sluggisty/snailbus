@@ -24,8 +24,15 @@ COPY . .
 # Generate OpenAPI specification from code annotations
 RUN swag init -g main.go -o docs --parseDependency --parseInternal
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o snailbus .
+# Build arguments for version information
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_TIME=unknown
+
+# Build the application with version information
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags "-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}" \
+    -a -installsuffix cgo -o snailbus .
 
 # Final stage
 FROM alpine:latest
