@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 
+	"snailbus/internal/logger"
 	"snailbus/internal/middleware"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
@@ -77,7 +77,7 @@ func (h *Handlers) Ingest(c *gin.Context) {
 	if c.GetHeader("Content-Encoding") == "gzip" {
 		gzReader, err := gzip.NewReader(c.Request.Body)
 		if err != nil {
-			log.Printf("Failed to create gzip reader: %v", err)
+			logger.FromContext(c).Err(err).Msg("Failed to create gzip reader")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to decompress request"})
 			return
 		}
@@ -88,7 +88,7 @@ func (h *Handlers) Ingest(c *gin.Context) {
 	// Parse the request
 	var req models.IngestRequest
 	if err := json.NewDecoder(reader).Decode(&req); err != nil {
-		log.Printf("Failed to parse ingest request: %v", err)
+		logger.FromContext(c).Err(err).Msg("Failed to parse ingest request")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON payload"})
 		return
 	}
@@ -131,13 +131,21 @@ func (h *Handlers) Ingest(c *gin.Context) {
 	// Store the report (replaces any previous data for this host)
 	// Associate the host with the authenticated user's organization and user ID
 	if err := h.storage.SaveHost(report, userObj.OrgID, userID.(string)); err != nil {
-		log.Printf("Failed to save host data for %s: %v", req.Meta.Hostname, err)
+		logger.FromContext(c).
+			Err(err).
+			Str("hostname", req.Meta.Hostname).
+			Str("host_id", req.Meta.HostID).
+			Msg("Failed to save host data")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store host data"})
 		return
 	}
 
-	log.Printf("Host data updated: host_id=%s, hostname=%s, collection_id=%s, errors=%d",
-		req.Meta.HostID, req.Meta.Hostname, req.Meta.CollectionID, len(req.Errors))
+	logger.FromContext(c).
+		Str("host_id", req.Meta.HostID).
+		Str("hostname", req.Meta.Hostname).
+		Str("collection_id", req.Meta.CollectionID).
+		Int("errors_count", len(req.Errors)).
+		Msg("Host data updated")
 
 	// Send response
 	c.JSON(http.StatusCreated, models.IngestResponse{
@@ -168,7 +176,7 @@ func (h *Handlers) ListHosts(c *gin.Context) {
 
 	hosts, err := h.storage.ListHosts(orgID)
 	if err != nil {
-		log.Printf("Failed to list hosts: %v", err)
+		logger.FromContext(c).Err(err).Msg("Failed to list hosts")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve hosts"})
 		return
 	}
@@ -212,7 +220,10 @@ func (h *Handlers) GetHost(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "host not found"})
 			return
 		}
-		log.Printf("Failed to get host %s: %v", hostID, err)
+		logger.FromContext(c).
+			Err(err).
+			Str("host_id", hostID).
+			Msg("Failed to get host")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve host"})
 		return
 	}
@@ -252,7 +263,10 @@ func (h *Handlers) DeleteHost(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "host not found"})
 			return
 		}
-		log.Printf("Failed to delete host %s: %v", hostID, err)
+		logger.FromContext(c).
+			Err(err).
+			Str("host_id", hostID).
+			Msg("Failed to delete host")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete host"})
 		return
 	}
@@ -275,14 +289,17 @@ func (h *Handlers) GetOpenAPISpecYAML(c *gin.Context) {
 	}
 
 	if specPath == "" {
-		log.Printf("Failed to find OpenAPI spec file")
+		logger.Logger.Warn().Msg("Failed to find OpenAPI spec file")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 		return
 	}
 
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
-		log.Printf("Failed to read OpenAPI spec from %s: %v", specPath, err)
+		logger.FromContext(c).
+			Err(err).
+			Str("spec_path", specPath).
+			Msg("Failed to read OpenAPI spec")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 		return
 	}
@@ -308,7 +325,7 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 		}
 
 		if specPath == "" {
-			log.Printf("Failed to find OpenAPI spec file")
+			logger.Logger.Warn().Msg("Failed to find OpenAPI spec file")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 			return
 		}
@@ -316,14 +333,20 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 		// Read and parse YAML, then convert to JSON
 		specData, err := os.ReadFile(specPath)
 		if err != nil {
-			log.Printf("Failed to read OpenAPI spec from %s: %v", specPath, err)
+			logger.FromContext(c).
+				Err(err).
+				Str("spec_path", specPath).
+				Msg("Failed to read OpenAPI spec")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 			return
 		}
 
 		var spec map[string]interface{}
 		if err := yaml.Unmarshal(specData, &spec); err != nil {
-			log.Printf("Failed to parse OpenAPI spec: %v", err)
+			logger.FromContext(c).
+				Err(err).
+				Str("spec_path", specPath).
+				Msg("Failed to parse OpenAPI spec")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse OpenAPI specification"})
 			return
 		}
@@ -334,7 +357,10 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 	// Read JSON file
 	specData, err := os.ReadFile(specPath)
 	if err != nil {
-		log.Printf("Failed to read OpenAPI spec from %s: %v", specPath, err)
+		logger.FromContext(c).
+			Err(err).
+			Str("spec_path", specPath).
+			Msg("Failed to read OpenAPI spec")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load OpenAPI specification"})
 		return
 	}
@@ -342,7 +368,10 @@ func (h *Handlers) GetOpenAPISpecJSON(c *gin.Context) {
 	// Parse and return JSON
 	var spec map[string]interface{}
 	if err := json.Unmarshal(specData, &spec); err != nil {
-		log.Printf("Failed to parse OpenAPI spec JSON: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("spec_path", specPath).
+			Msg("Failed to parse OpenAPI spec JSON")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse OpenAPI specification"})
 		return
 	}

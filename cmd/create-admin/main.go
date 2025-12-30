@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -12,10 +11,14 @@ import (
 	_ "github.com/lib/pq"
 
 	"snailbus/internal/auth"
+	"snailbus/internal/logger"
 	"snailbus/internal/storage"
 )
 
 func main() {
+	// Initialize structured logging
+	logger.Init()
+
 	// Get database URL from environment
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -45,32 +48,32 @@ func main() {
 
 	// Run migrations first
 	if err := runMigrations(databaseURL); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		logger.Logger.Fatal().Err(err).Msg("Failed to run migrations")
 	}
 
 	// Initialize storage
 	store, err := storage.NewPostgresStorage(databaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logger.Logger.Fatal().Err(err).Msg("Failed to connect to database")
 	}
 	defer store.Close()
 
 	// Check if admin user already exists
 	_, _, err = store.GetUserByUsername(adminUsername)
 	if err == nil {
-		log.Printf("Admin user '%s' already exists, skipping creation", adminUsername)
+		logger.Logger.Info().Str("username", adminUsername).Msg("Admin user already exists, skipping creation")
 		return
 	}
 
 	// Check if error is not "not found"
 	if err != storage.ErrNotFound {
-		log.Fatalf("Error checking for existing user: %v", err)
+		logger.Logger.Fatal().Err(err).Str("username", adminUsername).Msg("Error checking for existing user")
 	}
 
 	// Check if organization already exists
 	org, err := store.GetOrganizationByName(adminOrgName)
 	if err != nil && err != storage.ErrNotFound {
-		log.Fatalf("Error checking for existing organization: %v", err)
+		logger.Logger.Fatal().Err(err).Str("org_name", adminOrgName).Msg("Error checking for existing organization")
 	}
 
 	var orgID string
@@ -78,51 +81,72 @@ func main() {
 		// Create organization if it doesn't exist
 		org, err = store.CreateOrganization(adminOrgName)
 		if err != nil {
-			log.Fatalf("Failed to create organization: %v", err)
+			logger.Logger.Fatal().Err(err).Str("org_name", adminOrgName).Msg("Failed to create organization")
 		}
-		log.Printf("Created organization '%s' with ID: %s", adminOrgName, org.ID)
+		logger.Logger.Info().
+			Str("org_name", adminOrgName).
+			Str("org_id", org.ID).
+			Msg("Created organization")
 		orgID = org.ID
 	} else {
 		// Organization exists, check if it has users
 		userCount, err := store.CountUsersInOrganization(org.ID)
 		if err != nil {
-			log.Fatalf("Error counting users in organization: %v", err)
+			logger.Logger.Fatal().Err(err).Str("org_id", org.ID).Msg("Error counting users in organization")
 		}
 		if userCount > 0 {
-			log.Fatalf("Organization '%s' already has users. Cannot create admin user in existing organization.", adminOrgName)
+			logger.Logger.Fatal().
+				Str("org_name", adminOrgName).
+				Int("user_count", userCount).
+				Msg("Organization already has users. Cannot create admin user in existing organization.")
 		}
 		orgID = org.ID
-		log.Printf("Using existing organization '%s' with ID: %s", adminOrgName, org.ID)
+		logger.Logger.Info().
+			Str("org_name", adminOrgName).
+			Str("org_id", org.ID).
+			Msg("Using existing organization")
 	}
 
 	// Hash password
 	passwordHash, err := auth.HashPassword(adminPassword)
 	if err != nil {
-		log.Fatalf("Failed to hash password: %v", err)
+		logger.Logger.Fatal().Err(err).Str("username", adminUsername).Msg("Failed to hash password")
 	}
 
 	// Create admin user with admin role
 	user, err := store.CreateUser(adminUsername, adminEmail, passwordHash, orgID, "admin")
 	if err != nil {
-		log.Fatalf("Failed to create admin user: %v", err)
+		logger.Logger.Fatal().Err(err).
+			Str("username", adminUsername).
+			Str("email", adminEmail).
+			Str("org_id", orgID).
+			Msg("Failed to create admin user")
 	}
 
-	log.Printf("Admin user '%s' created successfully with ID: %s", adminUsername, user.ID)
+	logger.Logger.Info().
+		Str("username", adminUsername).
+		Str("user_id", user.ID).
+		Msg("Admin user created successfully")
 
 	// Create an API key for the admin user
 	plainKey, keyHash, keyPrefix, err := auth.GenerateAPIKey()
 	if err != nil {
-		log.Fatalf("Failed to generate API key: %v", err)
+		logger.Logger.Fatal().Err(err).Str("user_id", user.ID).Msg("Failed to generate API key")
 	}
 
 	// Store API key
 	_, err = store.CreateAPIKey(user.ID, keyHash, keyPrefix, "Initial Admin API Key", nil)
 	if err != nil {
-		log.Fatalf("Failed to create API key: %v", err)
+		logger.Logger.Fatal().Err(err).Str("user_id", user.ID).Msg("Failed to create API key")
 	}
 
-	log.Printf("Admin API key created: %s", plainKey)
-	log.Printf("You can use this API key to authenticate: X-API-Key: %s", plainKey)
+	logger.Logger.Info().
+		Str("api_key", plainKey).
+		Str("user_id", user.ID).
+		Msg("Admin API key created")
+	logger.Logger.Info().
+		Str("api_key", plainKey).
+		Msg("You can use this API key to authenticate: X-API-Key")
 }
 
 // runMigrations runs database migrations
@@ -160,9 +184,9 @@ func runMigrations(databaseURL string) error {
 	}
 
 	if err == migrate.ErrNoChange {
-		log.Println("Database is up to date, no migrations to run")
+		logger.Logger.Info().Msg("Database is up to date, no migrations to run")
 	} else {
-		log.Println("Database migrations completed successfully")
+		logger.Logger.Info().Msg("Database migrations completed successfully")
 	}
 
 	return nil

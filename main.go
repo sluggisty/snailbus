@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
@@ -16,6 +15,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"snailbus/internal/handlers"
+	"snailbus/internal/logger"
 	"snailbus/internal/middleware"
 	"snailbus/internal/storage"
 
@@ -47,18 +47,21 @@ var (
 // @schemes   http https
 
 func main() {
+	// Initialize structured logging
+	logger.Init()
+
 	// Initialize database connection
 	databaseURL := getEnv("DATABASE_URL", "postgres://snail:snail_secret@localhost:5432/snailbus?sslmode=disable")
 
 	// Run migrations first
 	if err := runMigrations(databaseURL); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		logger.Logger.Fatal().Err(err).Msg("Failed to run migrations")
 	}
 
 	// Initialize storage
 	store, err := storage.NewPostgresStorage(databaseURL)
 	if err != nil {
-		log.Fatalf("Failed to initialize storage: %v", err)
+		logger.Logger.Fatal().Err(err).Msg("Failed to initialize storage")
 	}
 	defer store.Close()
 
@@ -67,6 +70,9 @@ func main() {
 
 	// Create Gin router
 	r := gin.Default()
+
+	// Add request ID middleware (should be first to capture all requests)
+	r.Use(middleware.RequestIDMiddleware())
 
 	// Health check endpoint
 	r.GET("/health", h.Health)
@@ -146,9 +152,14 @@ func main() {
 
 	// Start server on port 8080
 	port := getEnv("PORT", "8080")
-	log.Printf("Starting Snailbus server on port %s", port)
+	logger.Logger.Info().
+		Str("port", port).
+		Str("version", Version).
+		Str("commit", Commit).
+		Str("build_time", BuildTime).
+		Msg("Starting Snailbus server")
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		logger.Logger.Fatal().Err(err).Msg("Failed to start server")
 	}
 }
 
@@ -184,9 +195,9 @@ func runMigrations(databaseURL string) error {
 	}
 
 	if err == migrate.ErrNoChange {
-		log.Println("Database is up to date, no migrations to run")
+		logger.Logger.Info().Msg("Database is up to date, no migrations to run")
 	} else {
-		log.Println("Database migrations completed successfully")
+		logger.Logger.Info().Msg("Database migrations completed successfully")
 	}
 
 	return nil

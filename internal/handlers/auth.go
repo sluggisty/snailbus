@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"snailbus/internal/auth"
+	"snailbus/internal/logger"
 	"snailbus/internal/middleware"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
@@ -51,7 +51,10 @@ func (h *Handlers) Register(c *gin.Context) {
 		// Organization exists, check if it has any users
 		userCount, err := h.storage.CountUsersInOrganization(existingOrg.ID)
 		if err != nil {
-			log.Printf("Failed to count users in organization: %v", err)
+			logger.FromContext(c).
+				Err(err).
+				Str("org_id", existingOrg.ID).
+				Msg("Failed to count users in organization")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check organization"})
 			return
 		}
@@ -74,7 +77,10 @@ func (h *Handlers) Register(c *gin.Context) {
 	// Create a new organization for this user
 	org, err := h.storage.CreateOrganization(req.OrgName)
 	if err != nil {
-		log.Printf("Failed to create organization: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("org_name", req.OrgName).
+			Msg("Failed to create organization")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create organization"})
 		return
 	}
@@ -83,7 +89,10 @@ func (h *Handlers) Register(c *gin.Context) {
 	// Hash password
 	passwordHash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		log.Printf("Failed to hash password: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("username", req.Username).
+			Msg("Failed to hash password")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
 	}
@@ -91,7 +100,12 @@ func (h *Handlers) Register(c *gin.Context) {
 	// Create user with admin role automatically
 	user, err := h.storage.CreateUser(req.Username, req.Email, passwordHash, orgID, "admin")
 	if err != nil {
-		log.Printf("Failed to create user: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("username", req.Username).
+			Str("email", req.Email).
+			Str("org_id", orgID).
+			Msg("Failed to create user")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
 	}
@@ -139,7 +153,10 @@ func (h *Handlers) Login(c *gin.Context) {
 	// Generate API key for this session
 	plainKey, keyHash, keyPrefix, err := auth.GenerateAPIKey()
 	if err != nil {
-		log.Printf("Failed to generate API key: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", user.ID).
+			Msg("Failed to generate API key")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
 		return
 	}
@@ -147,7 +164,10 @@ func (h *Handlers) Login(c *gin.Context) {
 	// Store API key
 	_, err = h.storage.CreateAPIKey(user.ID, keyHash, keyPrefix, "Web UI Session", nil)
 	if err != nil {
-		log.Printf("Failed to store API key: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", user.ID).
+			Msg("Failed to store API key")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
 		return
 	}
@@ -185,7 +205,10 @@ func (h *Handlers) CreateAPIKey(c *gin.Context) {
 	// Generate API key
 	plainKey, keyHash, keyPrefix, err := auth.GenerateAPIKey()
 	if err != nil {
-		log.Printf("Failed to generate API key: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID.(string)).
+			Msg("Failed to generate API key")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate API key"})
 		return
 	}
@@ -193,7 +216,11 @@ func (h *Handlers) CreateAPIKey(c *gin.Context) {
 	// Store API key
 	apiKey, err := h.storage.CreateAPIKey(userID.(string), keyHash, keyPrefix, req.Name, req.ExpiresAt)
 	if err != nil {
-		log.Printf("Failed to store API key: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID.(string)).
+			Str("key_name", req.Name).
+			Msg("Failed to store API key")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create API key"})
 		return
 	}
@@ -224,7 +251,10 @@ func (h *Handlers) ListAPIKeys(c *gin.Context) {
 
 	apiKeys, err := h.storage.GetAPIKeysByUserID(userID.(string))
 	if err != nil {
-		log.Printf("Failed to list API keys: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID.(string)).
+			Msg("Failed to list API keys")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve API keys"})
 		return
 	}
@@ -281,7 +311,11 @@ func (h *Handlers) DeleteAPIKey(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "API key not found"})
 			return
 		}
-		log.Printf("Failed to delete API key: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID.(string)).
+			Str("key_id", keyID).
+			Msg("Failed to delete API key")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete API key"})
 		return
 	}
@@ -347,7 +381,10 @@ func (h *Handlers) GetAPIKeyFromCredentials(c *gin.Context) {
 	// Generate API key
 	plainKey, keyHash, keyPrefix, err := auth.GenerateAPIKey()
 	if err != nil {
-		log.Printf("Failed to generate API key: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", user.ID).
+			Msg("Failed to generate API key")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate API key"})
 		return
 	}
@@ -355,7 +392,10 @@ func (h *Handlers) GetAPIKeyFromCredentials(c *gin.Context) {
 	// Store API key
 	apiKey, err := h.storage.CreateAPIKey(user.ID, keyHash, keyPrefix, "Auto-generated from credentials", nil)
 	if err != nil {
-		log.Printf("Failed to store API key: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", user.ID).
+			Msg("Failed to store API key")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create API key"})
 		return
 	}
@@ -389,7 +429,10 @@ func (h *Handlers) ListUsers(c *gin.Context) {
 
 	users, err := h.storage.ListUsersByOrganization(orgID)
 	if err != nil {
-		log.Printf("Failed to list users: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("org_id", orgID).
+			Msg("Failed to list users")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve users"})
 		return
 	}
@@ -445,7 +488,10 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 	// Hash password
 	passwordHash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		log.Printf("Failed to hash password: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("username", req.Username).
+			Msg("Failed to hash password")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
 	}
@@ -453,7 +499,13 @@ func (h *Handlers) CreateUser(c *gin.Context) {
 	// Create user in the current organization
 	newUser, err := h.storage.CreateUser(req.Username, req.Email, passwordHash, userObj.OrgID, req.Role)
 	if err != nil {
-		log.Printf("Failed to create user: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("username", req.Username).
+			Str("email", req.Email).
+			Str("org_id", userObj.OrgID).
+			Str("role", req.Role).
+			Msg("Failed to create user")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
 	}
@@ -501,7 +553,10 @@ func (h *Handlers) UpdateUserRole(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
-		log.Printf("Failed to get user: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID).
+			Msg("Failed to get user")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user"})
 		return
 	}
@@ -526,7 +581,11 @@ func (h *Handlers) UpdateUserRole(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
-		log.Printf("Failed to update user role: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID).
+			Str("new_role", req.Role).
+			Msg("Failed to update user role")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user role"})
 		return
 	}
@@ -534,7 +593,10 @@ func (h *Handlers) UpdateUserRole(c *gin.Context) {
 	// Fetch updated user
 	updatedUser, err := h.storage.GetUserByID(userID)
 	if err != nil {
-		log.Printf("Failed to get updated user: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID).
+			Msg("Failed to get updated user")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve updated user"})
 		return
 	}
@@ -579,7 +641,10 @@ func (h *Handlers) DeleteUser(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
-		log.Printf("Failed to get user: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID).
+			Msg("Failed to get user")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user"})
 		return
 	}
@@ -598,7 +663,10 @@ func (h *Handlers) DeleteUser(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
-		log.Printf("Failed to delete user: %v", err)
+		logger.FromContext(c).
+			Err(err).
+			Str("user_id", userID).
+			Msg("Failed to delete user")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user"})
 		return
 	}
