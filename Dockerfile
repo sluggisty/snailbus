@@ -3,7 +3,7 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Install git (needed for some Go dependencies)
+# Install git and swag dependencies first (these change rarely)
 RUN apk add --no-cache git
 
 # Install swag for generating OpenAPI docs
@@ -12,13 +12,13 @@ ENV GOPATH=/go
 ENV PATH=$PATH:$GOPATH/bin
 RUN go install github.com/swaggo/swag/cmd/swag@latest
 
-# Copy go mod files
+# Copy go mod files first for better layer caching
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download dependencies (cached unless go.mod/go.sum changes)
 RUN go mod download
 
-# Copy source code and migrations
+# Copy source code and migrations (changes frequently)
 COPY . .
 
 # Generate OpenAPI specification from code annotations
