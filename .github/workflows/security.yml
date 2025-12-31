@@ -22,6 +22,33 @@ jobs:
         with:
           go-version: '1.24'
 
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Swagger docs
+        working-directory: ${{ github.workspace }}
+        run: |
+          $HOME/go/bin/swag init -g main.go -o docs --parseDependency --parseInternal
+          # Verify docs were generated
+          if [ ! -f "docs/docs.go" ]; then
+            echo "Error: docs/docs.go was not generated"
+            exit 1
+          fi
+          echo "Swagger docs generated successfully"
+
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
@@ -48,6 +75,33 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Swagger docs
+        working-directory: ${{ github.workspace }}
+        run: |
+          $HOME/go/bin/swag init -g main.go -o docs --parseDependency --parseInternal
+          # Verify docs were generated
+          if [ ! -f "docs/docs.go" ]; then
+            echo "Error: docs/docs.go was not generated"
+            exit 1
+          fi
+          echo "Swagger docs generated successfully"
 
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
