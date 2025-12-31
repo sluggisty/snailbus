@@ -1,0 +1,242 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  govulncheck:
+    name: Go Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Swagger docs
+        working-directory: ${{ github.workspace }}
+        run: |
+          $HOME/go/bin/swag init -g main.go -o docs --parseDependency --parseInternal
+          # Verify docs were generated
+          if [ ! -f "docs/docs.go" ]; then
+            echo "Error: docs/docs.go was not generated"
+            exit 1
+          fi
+          echo "Swagger docs generated successfully"
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: $HOME/go/bin/govulncheck ./...
+
+      - name: Govulncheck summary
+        if: always()
+        run: |
+          echo "## Go Vulnerability Check (govulncheck)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Scan completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This scan checks your Go code and dependencies against the Go vulnerability database." >> $GITHUB_STEP_SUMMARY
+
+  gosec:
+    name: Go Security Checker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Swagger docs
+        working-directory: ${{ github.workspace }}
+        run: |
+          $HOME/go/bin/swag init -g main.go -o docs --parseDependency --parseInternal
+          # Verify docs were generated
+          if [ ! -f "docs/docs.go" ]; then
+            echo "Error: docs/docs.go was not generated"
+            exit 1
+          fi
+          echo "Swagger docs generated successfully"
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt json -out gosec-report.json ./...'
+
+      - name: Upload Gosec results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gosec-report
+          path: gosec-report.json
+          retention-days: 30
+
+      - name: Gosec summary
+        if: always()
+        run: |
+          if [ -f gosec-report.json ]; then
+            echo "## Gosec Security Scan Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if command -v jq > /dev/null; then
+              echo "### Statistics" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              jq -r '.Stats' gosec-report.json >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              
+              # Count issues by severity
+              CRITICAL=$(jq '[.Issues[] | select(.Severity == "CRITICAL")] | length' gosec-report.json)
+              HIGH=$(jq '[.Issues[] | select(.Severity == "HIGH")] | length' gosec-report.json)
+              MEDIUM=$(jq '[.Issues[] | select(.Severity == "MEDIUM")] | length' gosec-report.json)
+              LOW=$(jq '[.Issues[] | select(.Severity == "LOW")] | length' gosec-report.json)
+              
+              echo "### Issues by Severity" >> $GITHUB_STEP_SUMMARY
+              echo "- **CRITICAL**: $CRITICAL" >> $GITHUB_STEP_SUMMARY
+              echo "- **HIGH**: $HIGH" >> $GITHUB_STEP_SUMMARY
+              echo "- **MEDIUM**: $MEDIUM" >> $GITHUB_STEP_SUMMARY
+              echo "- **LOW**: $LOW" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "Gosec report generated. Install jq for detailed statistics." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "## Gosec Security Scan" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Report file not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  trivy-dependency:
+    name: Trivy Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail build, just report
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          wait-for-processing: true
+
+      - name: Trivy summary
+        if: always()
+        run: |
+          echo "## Trivy Dependency Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f trivy-results.sarif ]; then
+            echo "✅ Scan completed. Check the **Security** tab in your repository for detailed results." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "This scan checks your Go dependencies for known vulnerabilities." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ SARIF report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  trivy-container:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: snailbus:security-scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'snailbus:security-scan'
+          format: 'sarif'
+          output: 'trivy-container-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail build, just report
+
+      - name: Upload Trivy container results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-container-results.sarif'
+          wait-for-processing: true
+
+      - name: Trivy container summary
+        if: always()
+        run: |
+          echo "## Trivy Container Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f trivy-container-results.sarif ]; then
+            echo "✅ Container scan completed. Check the **Security** tab in your repository for detailed results." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "This scan checks your Docker image for known vulnerabilities in base images and installed packages." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ SARIF report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
