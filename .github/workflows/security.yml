@@ -9,6 +9,10 @@ on:
     # Run weekly on Mondays at 00:00 UTC
     - cron: '0 0 * * 1'
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   govulncheck:
     name: Go Vulnerability Check
@@ -166,7 +170,7 @@ jobs:
           exit-code: '0'  # Don't fail build, just report
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
@@ -217,7 +221,7 @@ jobs:
           exit-code: '0'  # Don't fail build, just report
 
       - name: Upload Trivy container results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-container-results.sarif'
