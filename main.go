@@ -11,11 +11,14 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"snailbus/internal/handlers"
 	"snailbus/internal/logger"
+	"snailbus/internal/metrics"
 	"snailbus/internal/middleware"
 	"snailbus/internal/storage"
 
@@ -65,6 +68,13 @@ func main() {
 	}
 	defer store.Close()
 
+	// Register database metrics
+	metrics.RegisterDBMetrics(store.DB(), "snailbus")
+
+	// Register Go runtime metrics
+	prometheus.MustRegister(prometheus.NewGoCollector())
+	prometheus.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+
 	// Create handlers
 	h := handlers.New(store)
 
@@ -74,8 +84,14 @@ func main() {
 	// Add request ID middleware (should be first to capture all requests)
 	r.Use(middleware.RequestIDMiddleware())
 
+	// Add metrics middleware (should be early to capture all requests)
+	r.Use(middleware.MetricsMiddleware())
+
 	// Health check endpoint
 	r.GET("/health", h.Health)
+
+	// Prometheus metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Root endpoint
 	r.GET("/", func(c *gin.Context) {

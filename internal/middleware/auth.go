@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"snailbus/internal/auth"
+	"snailbus/internal/metrics"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
 )
@@ -103,6 +104,9 @@ func AuthMiddleware(store storage.Storage) gin.HandlerFunc {
 		c.Set("user_id", authenticatedUserID)
 		c.Set("api_key_id", apiKeyID)
 		c.Set("user", user)
+
+		// Track business metric: API keys used per org
+		metrics.APIKeysUsedTotal.WithLabelValues(user.OrgID).Inc()
 
 		// Update last used timestamp (async, don't wait)
 		go store.UpdateAPIKeyLastUsed(apiKeyID)

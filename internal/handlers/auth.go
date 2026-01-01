@@ -7,6 +7,7 @@ import (
 
 	"snailbus/internal/auth"
 	"snailbus/internal/logger"
+	"snailbus/internal/metrics"
 	"snailbus/internal/middleware"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
@@ -223,6 +224,12 @@ func (h *Handlers) CreateAPIKey(c *gin.Context) {
 			Msg("Failed to store API key")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create API key"})
 		return
+	}
+
+	// Track business metric: API keys created per org
+	orgID := middleware.GetOrgID(c)
+	if orgID != "" {
+		metrics.APIKeysCreatedTotal.WithLabelValues(orgID).Inc()
 	}
 
 	c.JSON(http.StatusCreated, models.CreateAPIKeyResponse{
