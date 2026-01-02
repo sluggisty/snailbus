@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"snailbus/internal/logger"
+	"snailbus/internal/metrics"
 	"snailbus/internal/middleware"
 	"snailbus/internal/models"
 	"snailbus/internal/storage"
@@ -139,6 +140,9 @@ func (h *Handlers) Ingest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store host data"})
 		return
 	}
+
+	// Track business metric: hosts ingested per org
+	metrics.HostsIngestedTotal.WithLabelValues(userObj.OrgID).Inc()
 
 	logger.FromContext(c).
 		Str("host_id", req.Meta.HostID).

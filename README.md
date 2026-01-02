@@ -336,8 +336,17 @@ snailbus/
 - `MIGRATIONS_PATH`: Path to migration files
   - Default: `file://migrations`
   
-- `PORT`: Server port
+- `PORT`: Main API server port
   - Default: `8080`
+  
+- `METRICS_PORT`: Prometheus metrics server port
+  - Default: `9090`
+  - The metrics server runs on a separate port for network-level security
+  
+- `METRICS_BIND_ADDRESS`: IP address to bind the metrics server to
+  - Default: `127.0.0.1` (localhost only)
+  - Set to `0.0.0.0` to allow access from other hosts (use with firewall rules)
+  - **Security Note**: Keep metrics on localhost in production and use network-level restrictions (firewall, reverse proxy) to control access
   
 - `GIN_MODE`: Gin framework mode
   - `debug`: Development mode with detailed logging (default)

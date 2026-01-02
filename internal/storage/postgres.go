@@ -16,6 +16,11 @@ type PostgresStorage struct {
 	db *sql.DB
 }
 
+// DB returns the underlying database connection for metrics collection
+func (ps *PostgresStorage) DB() *sql.DB {
+	return ps.db
+}
+
 // NewPostgresStorage creates a new PostgreSQL-backed storage
 func NewPostgresStorage(dsn string) (*PostgresStorage, error) {
 	db, err := sql.Open("postgres", dsn)
