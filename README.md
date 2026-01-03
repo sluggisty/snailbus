@@ -352,6 +352,22 @@ snailbus/
   - `debug`: Development mode with detailed logging (default)
   - `release`: Production mode with optimized performance
 
+- `RATE_LIMIT_GENERAL`: Rate limit for general authenticated API endpoints per API key
+  - Default: `100-M` (100 requests per minute)
+  - Format: `{number}-{period}` where period can be `S`, `M`, `H` (second, minute, hour)
+
+- `RATE_LIMIT_REGISTER`: Rate limit for `/auth/register` endpoint per IP address
+  - Default: `10-M` (10 requests per minute)
+  - Format: `{number}-{period}` where period can be `S`, `M`, `H` (second, minute, hour)
+
+- `RATE_LIMIT_LOGIN`: Rate limit for `/auth/login` and `/auth/api-key` endpoints per IP address
+  - Default: `20-M` (20 requests per minute)
+  - Format: `{number}-{period}` where period can be `S`, `M`, `H` (second, minute, hour)
+
+- `RATE_LIMIT_INGEST`: Rate limit for `/ingest` endpoint per API key
+  - Default: `50-M` (50 requests per minute)
+  - Format: `{number}-{period}` where period can be `S`, `M`, `H` (second, minute, hour)
+
 ### Docker Compose Configuration
 
 The `docker-compose.yml` includes:

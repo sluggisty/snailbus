@@ -116,6 +116,9 @@ func main() {
 	// Add metrics middleware (should be early to capture all requests)
 	r.Use(middleware.MetricsMiddleware())
 
+	// Initialize rate limiting middleware
+	generalRateLimiter, registerRateLimiter, loginRateLimiter, ingestRateLimiter := middleware.InitRateLimitMiddleware()
+
 	// Health check endpoint
 	r.GET("/health", h.Health)
 
@@ -135,13 +138,14 @@ func main() {
 		// Public auth endpoints (no authentication required)
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/register", h.Register)
-			auth.POST("/login", h.Login)
-			auth.POST("/api-key", h.GetAPIKeyFromCredentials) // Get API key from username/password
+			auth.POST("/register", registerRateLimiter, h.Register)
+			auth.POST("/login", loginRateLimiter, h.Login)
+			auth.POST("/api-key", loginRateLimiter, h.GetAPIKeyFromCredentials) // Get API key from username/password (use login limit)
 		}
 
 		// Protected routes (require API key authentication)
 		protected := v1.Group("")
+		protected.Use(generalRateLimiter) // Apply general API key rate limiting
 		protected.Use(middleware.AuthMiddleware(store))
 		protected.Use(middleware.OrgContextMiddleware()) // Extract org_id and role for easy access
 		{
@@ -177,6 +181,7 @@ func main() {
 
 		// Ingest endpoint - requires editor or admin role (viewers cannot upload)
 		ingest := v1.Group("")
+		ingest.Use(ingestRateLimiter) // Apply stricter rate limiting for ingest
 		ingest.Use(middleware.AuthMiddleware(store))
 		ingest.Use(middleware.OrgContextMiddleware()) // Extract org_id and role
 		ingest.Use(middleware.RequireRole("editor", "admin"))
