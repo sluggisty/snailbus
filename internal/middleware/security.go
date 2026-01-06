@@ -43,4 +43,3 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
-

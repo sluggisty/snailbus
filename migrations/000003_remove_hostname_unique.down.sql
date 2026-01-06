@@ -5,3 +5,4 @@ ALTER TABLE hosts ADD CONSTRAINT hosts_hostname_unique UNIQUE (hostname);
 
 
 
+

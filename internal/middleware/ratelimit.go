@@ -31,10 +31,10 @@ type RateLimitConfig struct {
 // getRateLimitConfig loads rate limit configuration from environment variables
 func getRateLimitConfig() RateLimitConfig {
 	return RateLimitConfig{
-		GeneralLimit:  getEnv("RATE_LIMIT_GENERAL", "100-M"),  // 100 requests per minute
-		RegisterLimit: getEnv("RATE_LIMIT_REGISTER", "10-M"),  // 10 requests per minute
-		LoginLimit:    getEnv("RATE_LIMIT_LOGIN", "20-M"),     // 20 requests per minute
-		IngestLimit:   getEnv("RATE_LIMIT_INGEST", "50-M"),    // 50 requests per minute
+		GeneralLimit:  getEnv("RATE_LIMIT_GENERAL", "100-M"), // 100 requests per minute
+		RegisterLimit: getEnv("RATE_LIMIT_REGISTER", "10-M"), // 10 requests per minute
+		LoginLimit:    getEnv("RATE_LIMIT_LOGIN", "20-M"),    // 20 requests per minute
+		IngestLimit:   getEnv("RATE_LIMIT_INGEST", "50-M"),   // 50 requests per minute
 	}
 }
 
@@ -74,12 +74,12 @@ func IPRateLimitMiddleware(rateStr string) gin.HandlerFunc {
 	return mgin.NewMiddleware(instance, mgin.WithLimitReachedHandler(func(c *gin.Context) {
 		c.Header("Retry-After", strconv.Itoa(int(rate.Period.Seconds())))
 		c.JSON(http.StatusTooManyRequests, gin.H{
-			"error":         "rate limit exceeded",
-			"message":       "Too many requests from this IP address",
-			"retry_after":   int(rate.Period.Seconds()),
-			"limit":         rate.Limit,
-			"period":        rate.Period.String(),
-			"reset_time":    time.Now().Add(rate.Period).Format(time.RFC3339),
+			"error":       "rate limit exceeded",
+			"message":     "Too many requests from this IP address",
+			"retry_after": int(rate.Period.Seconds()),
+			"limit":       rate.Limit,
+			"period":      rate.Period.String(),
+			"reset_time":  time.Now().Add(rate.Period).Format(time.RFC3339),
 		})
 		c.Abort()
 	}))
@@ -128,12 +128,12 @@ func APIKeyRateLimitMiddleware(rateStr string) gin.HandlerFunc {
 		if context.Reached {
 			c.Header("Retry-After", strconv.Itoa(int(rate.Period.Seconds())))
 			c.JSON(http.StatusTooManyRequests, gin.H{
-				"error":         "rate limit exceeded",
-				"message":       "Too many requests",
-				"retry_after":   int(rate.Period.Seconds()),
-				"limit":         rate.Limit,
-				"period":        rate.Period.String(),
-				"reset_time":    time.Now().Add(rate.Period).Format(time.RFC3339),
+				"error":       "rate limit exceeded",
+				"message":     "Too many requests",
+				"retry_after": int(rate.Period.Seconds()),
+				"limit":       rate.Limit,
+				"period":      rate.Period.String(),
+				"reset_time":  time.Now().Add(rate.Period).Format(time.RFC3339),
 			})
 			c.Abort()
 			return

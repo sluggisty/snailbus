@@ -116,6 +116,12 @@ func main() {
 	// Add security headers middleware (should be early to set headers for all responses)
 	r.Use(middleware.SecurityHeadersMiddleware())
 
+	// Add CSRF token middleware (sets CSRF token cookie for frontend access)
+	r.Use(middleware.CSRFTokenMiddleware())
+
+	// Add CSRF protection for state-changing requests
+	r.Use(middleware.CSRFTokens())
+
 	// Add metrics middleware (should be early to capture all requests)
 	r.Use(middleware.MetricsMiddleware())
 

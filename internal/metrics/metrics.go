@@ -140,5 +140,3 @@ func RegisterDBMetrics(db *sql.DB, dbName string) {
 		}
 	}()
 }
-
-

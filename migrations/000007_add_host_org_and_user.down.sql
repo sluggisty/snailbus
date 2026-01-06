@@ -32,3 +32,4 @@ END$$;
 ALTER TABLE hosts DROP COLUMN IF EXISTS uploaded_by_user_id;
 ALTER TABLE hosts DROP COLUMN IF EXISTS org_id;
 
+
