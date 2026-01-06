@@ -113,6 +113,9 @@ func main() {
 	// Add request ID middleware (should be first to capture all requests)
 	r.Use(middleware.RequestIDMiddleware())
 
+	// Add security headers middleware (should be early to set headers for all responses)
+	r.Use(middleware.SecurityHeadersMiddleware())
+
 	// Add metrics middleware (should be early to capture all requests)
 	r.Use(middleware.MetricsMiddleware())
 
