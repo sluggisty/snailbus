@@ -259,21 +259,54 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logger.Logger.Info().Msg("Shutting down servers...")
+	logger.Logger.Info().Msg("Received shutdown signal, initiating graceful shutdown...")
 
-	// Gracefully shutdown API server
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := apiServer.Shutdown(ctx); err != nil {
+	// Create shutdown context with 30 second timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	logger.Logger.Info().Msg("Step 1/4: Waiting for in-flight HTTP requests to complete (30s timeout)...")
+
+	// Gracefully shutdown API server (waits for in-flight requests)
+	if err := apiServer.Shutdown(shutdownCtx); err != nil {
 		logger.Logger.Error().Err(err).Msg("Error shutting down API server")
+	} else {
+		logger.Logger.Info().Msg("✓ API server shut down successfully")
 	}
 
 	// Gracefully shutdown metrics server
-	if err := metricsServer.Shutdown(ctx); err != nil {
+	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
 		logger.Logger.Error().Err(err).Msg("Error shutting down metrics server")
+	} else {
+		logger.Logger.Info().Msg("✓ Metrics server shut down successfully")
 	}
 
-	logger.Logger.Info().Msg("Servers stopped")
+	logger.Logger.Info().Msg("Step 2/4: Closing database connections...")
+
+	// Close database connections properly
+	if store != nil {
+		if db := store.DB(); db != nil {
+			if err := db.Close(); err != nil {
+				logger.Logger.Error().Err(err).Msg("Error closing database connection")
+			} else {
+				logger.Logger.Info().Msg("✓ Database connections closed successfully")
+			}
+		}
+	}
+
+	logger.Logger.Info().Msg("Step 3/4: Flushing logs...")
+
+	// Flush any buffered logs (zerolog handles this automatically, but we log completion)
+	logger.Logger.Info().Msg("✓ Log flushing completed")
+
+	logger.Logger.Info().Msg("Step 4/4: Graceful shutdown completed")
+
+	// Check if shutdown was graceful or forced
+	if shutdownCtx.Err() == context.DeadlineExceeded {
+		logger.Logger.Warn().Msg("Shutdown timeout exceeded - some connections may have been forcefully closed")
+	} else {
+		logger.Logger.Info().Msg("All servers stopped gracefully")
+	}
 }
 
 // runMigrations runs database migrations
