@@ -51,3 +51,4 @@ ALTER TABLE hosts ALTER COLUMN org_id SET NOT NULL;
 -- Ensure all hosts have an uploaded_by_user_id before running this migration
 ALTER TABLE hosts ALTER COLUMN uploaded_by_user_id SET NOT NULL;
 
+

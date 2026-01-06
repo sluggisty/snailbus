@@ -16,3 +16,4 @@ CREATE INDEX IF NOT EXISTS idx_organizations_name ON organizations(name);
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+

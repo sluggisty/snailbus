@@ -31,3 +31,4 @@ ALTER TABLE users ALTER COLUMN org_id SET NOT NULL;
 -- Ensure all users have a role before running this migration
 ALTER TABLE users ALTER COLUMN role SET NOT NULL;
 
+

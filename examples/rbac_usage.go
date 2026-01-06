@@ -105,4 +105,3 @@ func exampleDirectRBACUsage(store storage.Storage, h *handlers.Handlers) {
 		)
 	}
 }
-

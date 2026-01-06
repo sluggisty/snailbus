@@ -173,9 +173,13 @@ func (h *Handlers) Login(c *gin.Context) {
 		return
 	}
 
+	// Get CSRF token for this session
+	csrfToken := middleware.GetCSRFToken(c)
+
 	c.JSON(http.StatusOK, models.LoginResponse{
-		User:  user,
-		Token: plainKey, // Return the plain API key as "token"
+		User:      user,
+		Token:     plainKey,  // Return the plain API key as "token"
+		CSRFToken: csrfToken, // Return CSRF token for frontend protection
 	})
 }
 

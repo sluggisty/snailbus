@@ -368,6 +368,16 @@ snailbus/
   - Default: `50-M` (50 requests per minute)
   - Format: `{number}-{period}` where period can be `S`, `M`, `H` (second, minute, hour)
 
+- `CONTENT_SECURITY_POLICY`: Content Security Policy header value
+  - Default: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';`
+  - Controls which resources can be loaded and executed on the page
+  - Customize for your specific frontend requirements
+
+- `CSRF_AUTH_KEY`: Base64-encoded 32-byte key for CSRF token validation
+  - Default: Randomly generated on startup (logged to console)
+  - Set this in production for consistent CSRF token validation across restarts
+  - Generate with: `openssl rand -base64 32`
+
 ### Docker Compose Configuration
 
 The `docker-compose.yml` includes:

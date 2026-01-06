@@ -59,8 +59,9 @@ type RegisterRequest struct {
 
 // LoginResponse is returned after successful login
 type LoginResponse struct {
-	User  *User  `json:"user"`
-	Token string `json:"token"` // API key for this session
+	User      *User  `json:"user"`
+	Token     string `json:"token"`      // API key for this session
+	CSRFToken string `json:"csrf_token"` // CSRF token for frontend protection
 }
 
 // CreateUserRequest is used by admins to create new users
