@@ -38,6 +38,11 @@ type Config struct {
 	RateLimitRegister string
 	RateLimitLogin    string
 	RateLimitIngest   string
+
+	// Request size limits (in bytes)
+	MaxRequestSizeIngest int64 // 10MB for /ingest endpoint
+	MaxRequestSizePost   int64 // 1MB for other POST endpoints
+	MaxRequestSizeGet    int64 // 100KB for GET requests
 }
 
 // Load loads and validates configuration from environment variables
@@ -75,6 +80,11 @@ func (c *Config) loadFromEnv() error {
 	c.RateLimitRegister = getEnv("RATE_LIMIT_REGISTER", "5-M")
 	c.RateLimitLogin = getEnv("RATE_LIMIT_LOGIN", "10-M")
 	c.RateLimitIngest = getEnv("RATE_LIMIT_INGEST", "50-M")
+
+	// Request size limits (parse from environment, defaults in MB/KB)
+	c.MaxRequestSizeIngest = parseSize(getEnv("MAX_REQUEST_SIZE_INGEST", "10MB"))
+	c.MaxRequestSizePost = parseSize(getEnv("MAX_REQUEST_SIZE_POST", "1MB"))
+	c.MaxRequestSizeGet = parseSize(getEnv("MAX_REQUEST_SIZE_GET", "100KB"))
 
 	return nil
 }
@@ -130,6 +140,11 @@ func (c *Config) validate() error {
 		if err := c.validateRateLimit(value, fieldName); err != nil {
 			errors = append(errors, err.Error())
 		}
+	}
+
+	// Validate request size limits
+	if err := c.validateRequestSizeLimits(); err != nil {
+		errors = append(errors, err.Error())
 	}
 
 	if len(errors) > 0 {
@@ -282,6 +297,34 @@ func (c *Config) validateRateLimit(value, fieldName string) error {
 	return nil
 }
 
+// validateRequestSizeLimits validates that request size limits are reasonable
+func (c *Config) validateRequestSizeLimits() error {
+	// Basic sanity checks - limits should be positive and reasonable
+	if c.MaxRequestSizeIngest <= 0 {
+		return fmt.Errorf("MAX_REQUEST_SIZE_INGEST must be positive: %d", c.MaxRequestSizeIngest)
+	}
+	if c.MaxRequestSizePost <= 0 {
+		return fmt.Errorf("MAX_REQUEST_SIZE_POST must be positive: %d", c.MaxRequestSizePost)
+	}
+	if c.MaxRequestSizeGet <= 0 {
+		return fmt.Errorf("MAX_REQUEST_SIZE_GET must be positive: %d", c.MaxRequestSizeGet)
+	}
+
+	// Ingest should be larger than general POST limits
+	if c.MaxRequestSizeIngest < c.MaxRequestSizePost {
+		return fmt.Errorf("MAX_REQUEST_SIZE_INGEST (%d) should be larger than MAX_REQUEST_SIZE_POST (%d)",
+			c.MaxRequestSizeIngest, c.MaxRequestSizePost)
+	}
+
+	// POST should be larger than GET limits
+	if c.MaxRequestSizePost < c.MaxRequestSizeGet {
+		return fmt.Errorf("MAX_REQUEST_SIZE_POST (%d) should be larger than MAX_REQUEST_SIZE_GET (%d)",
+			c.MaxRequestSizePost, c.MaxRequestSizeGet)
+	}
+
+	return nil
+}
+
 // getEnv gets an environment variable or returns a default value
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
@@ -293,4 +336,45 @@ func getEnv(key, defaultValue string) string {
 // decodeBase64 decodes a base64 string
 func decodeBase64(s string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(s)
+}
+
+// parseSize parses size strings like "10MB", "1MB", "100KB" into bytes
+func parseSize(sizeStr string) int64 {
+	if sizeStr == "" {
+		return 0
+	}
+
+	// Extract number and unit
+	var numStr string
+	var unit string
+
+	for i, char := range sizeStr {
+		if char >= '0' && char <= '9' {
+			numStr += string(char)
+		} else {
+			unit = strings.ToUpper(sizeStr[i:])
+			break
+		}
+	}
+
+	if numStr == "" {
+		return 0
+	}
+
+	num, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+
+	switch unit {
+	case "KB":
+		return num * 1024
+	case "MB":
+		return num * 1024 * 1024
+	case "GB":
+		return num * 1024 * 1024 * 1024
+	default:
+		// Assume bytes if no unit
+		return num
+	}
 }

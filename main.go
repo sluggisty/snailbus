@@ -136,6 +136,9 @@ func main() {
 	// Add request ID middleware (should be first to capture all requests)
 	r.Use(middleware.RequestIDMiddleware())
 
+	// Add request size limit middleware (should be early to prevent large requests)
+	r.Use(middleware.RequestSizeLimit(cfg))
+
 	// Add security headers middleware (should be early to set headers for all responses)
 	r.Use(middleware.SecurityHeadersMiddleware())
 

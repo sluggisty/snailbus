@@ -368,6 +368,18 @@ snailbus/
   - Default: `50-M` (50 requests per minute)
   - Format: `{number}-{period}` where period can be `S`, `M`, `H` (second, minute, hour)
 
+- `MAX_REQUEST_SIZE_INGEST`: Maximum request size for `/ingest` endpoint
+  - Default: `10MB`
+  - Format: `{number}{unit}` where unit can be `KB`, `MB`, `GB`
+
+- `MAX_REQUEST_SIZE_POST`: Maximum request size for POST/PUT/PATCH endpoints (except `/ingest`)
+  - Default: `1MB`
+  - Format: `{number}{unit}` where unit can be `KB`, `MB`, `GB`
+
+- `MAX_REQUEST_SIZE_GET`: Maximum request size for GET endpoints
+  - Default: `100KB`
+  - Format: `{number}{unit}` where unit can be `KB`, `MB`, `GB`
+
 ## Configuration Validation
 
 The application validates all configuration on startup and fails fast with clear error messages if validation fails.

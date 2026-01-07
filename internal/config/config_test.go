@@ -146,3 +146,48 @@ func TestValidateCSRFAuthKey(t *testing.T) {
 	c.CSRFAuthKey = "dGVzdA==" // Only 4 bytes when decoded
 	assert.Error(t, c.validateCSRFAuthKey())
 }
+
+func TestParseSize(t *testing.T) {
+	// Test KB
+	assert.Equal(t, int64(1024), parseSize("1KB"))
+	assert.Equal(t, int64(2048), parseSize("2KB"))
+
+	// Test MB
+	assert.Equal(t, int64(1024*1024), parseSize("1MB"))
+	assert.Equal(t, int64(10*1024*1024), parseSize("10MB"))
+
+	// Test GB
+	assert.Equal(t, int64(1024*1024*1024), parseSize("1GB"))
+
+	// Test plain numbers (bytes)
+	assert.Equal(t, int64(1000), parseSize("1000"))
+
+	// Test empty/invalid
+	assert.Equal(t, int64(0), parseSize(""))
+	assert.Equal(t, int64(0), parseSize("invalid"))
+	assert.Equal(t, int64(0), parseSize("KB"))
+}
+
+func TestValidateRequestSizeLimits(t *testing.T) {
+	c := &Config{}
+
+	// Valid configuration
+	c.MaxRequestSizeIngest = 10 * 1024 * 1024 // 10MB
+	c.MaxRequestSizePost = 1 * 1024 * 1024    // 1MB
+	c.MaxRequestSizeGet = 100 * 1024          // 100KB
+	assert.NoError(t, c.validateRequestSizeLimits())
+
+	// Invalid: negative values
+	c.MaxRequestSizeIngest = -1
+	assert.Error(t, c.validateRequestSizeLimits())
+	c.MaxRequestSizeIngest = 10 * 1024 * 1024
+
+	// Invalid: ingest smaller than post
+	c.MaxRequestSizePost = 20 * 1024 * 1024 // 20MB (larger than ingest)
+	assert.Error(t, c.validateRequestSizeLimits())
+	c.MaxRequestSizePost = 1 * 1024 * 1024
+
+	// Invalid: post smaller than get
+	c.MaxRequestSizeGet = 2 * 1024 * 1024 // 2MB (larger than post)
+	assert.Error(t, c.validateRequestSizeLimits())
+}
