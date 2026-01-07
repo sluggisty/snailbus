@@ -384,6 +384,20 @@ snailbus/
 
 The application validates all configuration on startup and fails fast with clear error messages if validation fails.
 
+### Environment Setup
+
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` with your environment-specific values
+
+3. Validate your configuration:
+   ```bash
+   ./snailbus --validate-config
+   ```
+
 ### Command Line Options
 
 - `--validate-config`: Validate configuration and exit without starting the server
