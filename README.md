@@ -368,6 +368,25 @@ snailbus/
   - Default: `50-M` (50 requests per minute)
   - Format: `{number}-{period}` where period can be `S`, `M`, `H` (second, minute, hour)
 
+## Configuration Validation
+
+The application validates all configuration on startup and fails fast with clear error messages if validation fails.
+
+### Command Line Options
+
+- `--validate-config`: Validate configuration and exit without starting the server
+  - Useful for CI/CD pipelines and configuration testing
+  - Returns exit code 0 on success, 1 on validation failure
+
+### Configuration Requirements
+
+- **DATABASE_URL**: Must be a valid PostgreSQL connection string (tested with actual connection)
+- **PORT/METRICS_PORT**: Must be valid port numbers (1-65535)
+- **LOG_LEVEL**: Must be one of: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic`
+- **GIN_MODE**: Must be one of: `debug`, `release`, `test`
+- **CSRF_AUTH_KEY**: If provided, must be valid base64 encoding 32 bytes when decoded
+- **Rate limit formats**: Must follow `{number}-{period}` format where period is `S`, `M`, or `H`
+
 - `CONTENT_SECURITY_POLICY`: Content Security Policy header value
   - Default: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';`
   - Controls which resources can be loaded and executed on the page

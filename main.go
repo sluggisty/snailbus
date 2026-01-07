@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -21,6 +22,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
+	"snailbus/internal/config"
 	"snailbus/internal/handlers"
 	"snailbus/internal/logger"
 	"snailbus/internal/metrics"
@@ -59,14 +61,35 @@ var (
 // @schemes   http https
 
 func main() {
+	// Parse command line arguments
+	var validateConfigCmd = flag.Bool("validate-config", false, "Validate configuration and exit")
+	flag.Parse()
+
+	// Load and validate configuration
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Configuration error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// If validate-config flag is set, validate and exit
+	if *validateConfigCmd {
+		fmt.Println("✅ Configuration validation successful!")
+		fmt.Printf("Database URL: %s\n", cfg.DatabaseURL)
+		fmt.Printf("Server Port: %s\n", cfg.Port)
+		fmt.Printf("Metrics Port: %s\n", cfg.MetricsPort)
+		fmt.Printf("Log Level: %s\n", cfg.LogLevel)
+		fmt.Printf("Gin Mode: %s\n", cfg.GinMode)
+		os.Exit(0)
+	}
+
 	// Initialize structured logging
 	logger.Init()
 
-	// Initialize database connection
-	databaseURL := getEnv("DATABASE_URL", "postgres://snail:snail_secret@localhost:5432/snailbus?sslmode=disable")
+	databaseURL := cfg.DatabaseURL
 
 	// Run migrations first
-	if err := runMigrations(databaseURL); err != nil {
+	if err := runMigrations(databaseURL, cfg.MigrationsPath); err != nil {
 		logger.Logger.Fatal().Err(err).Msg("Failed to run migrations")
 	}
 
@@ -207,20 +230,17 @@ func main() {
 	r.GET("/openapi.json", h.GetOpenAPISpecJSON)
 
 	// Start main API server
-	port := getEnv("PORT", "8080")
 	apiServer := &http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + cfg.Port,
 		Handler: r,
 	}
 
-	// Start metrics server on separate port (default: localhost:9090)
+	// Start metrics server on separate port
 	// This provides network-level security - metrics are only accessible from localhost/internal network
-	metricsPort := getEnv("METRICS_PORT", "9090")
-	metricsBindAddr := getEnv("METRICS_BIND_ADDRESS", "127.0.0.1")
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
 	metricsServer := &http.Server{
-		Addr:    metricsBindAddr + ":" + metricsPort,
+		Addr:    cfg.MetricsBindAddr + ":" + cfg.MetricsPort,
 		Handler: metricsMux,
 	}
 
@@ -232,7 +252,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		logger.Logger.Info().
-			Str("port", port).
+			Str("port", cfg.Port).
 			Str("version", Version).
 			Str("commit", Commit).
 			Str("build_time", BuildTime).
@@ -246,8 +266,8 @@ func main() {
 	go func() {
 		defer wg.Done()
 		logger.Logger.Info().
-			Str("address", metricsBindAddr).
-			Str("port", metricsPort).
+			Str("address", cfg.MetricsBindAddr).
+			Str("port", cfg.MetricsPort).
 			Msg("Starting metrics server")
 		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Logger.Fatal().Err(err).Msg("Failed to start metrics server")
@@ -310,7 +330,7 @@ func main() {
 }
 
 // runMigrations runs database migrations
-func runMigrations(databaseURL string) error {
+func runMigrations(databaseURL, migrationsPath string) error {
 	// Parse database URL to get driver instance
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
@@ -323,8 +343,7 @@ func runMigrations(databaseURL string) error {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
 
-	// Get migrations directory from environment or use default
-	migrationsPath := getEnv("MIGRATIONS_PATH", "file://migrations")
+	// migrationsPath is now passed as parameter
 
 	m, err := migrate.NewWithDatabaseInstance(
 		migrationsPath,
